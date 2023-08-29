@@ -31,7 +31,7 @@ pub fn derive_str_pattern(input: proc_macro::TokenStream) -> proc_macro::TokenSt
                 ::once_cell::sync::Lazy::new(|| vec![ #regexes ]);
 
             impl #ident {
-                fn from_string(string: &str) -> ::std::option::Option<Self> {
+                pub fn from_string(string: &str) -> ::std::option::Option<Self> {
                     for (i, re) in #regexes_ident.iter().enumerate() {
                         if re.is_match(string) {
                             let caps = re.captures(string)?;
