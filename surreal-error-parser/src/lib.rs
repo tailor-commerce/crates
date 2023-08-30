@@ -155,13 +155,13 @@ pub enum QueryError {
     #[str_pattern("The query was not executed due to a cancelled transaction")]
     QueryCancelled,
 
-    /// The query did not execute, because the transaction has failed
-    #[str_pattern("The query was not executed due to a failed transaction")]
-    QueryNotExecuted,
-
     /// The query did not execute, because the transaction has failed (with a message)
     #[str_pattern("The query was not executed due to a failed transaction. {message}")]
     QueryNotExecutedDetail { message: String },
+
+    /// The query did not execute, because the transaction has failed
+    #[str_pattern("The query was not executed due to a failed transaction")]
+    QueryNotExecuted,
 
     /// The permissions do not allow for changing to the specified namespace
     #[str_pattern("You don't have permission to change to the {ns} namespace")]

@@ -75,10 +75,7 @@ fn impl_enum(
             ));
         };
 
-        let str_value = format!(
-            r"\A{}\z",
-            regex::escape(&attribute.parse_args::<syn::LitStr>()?.value())
-        );
+        let str_value = regex::escape(&attribute.parse_args::<syn::LitStr>()?.value());
 
         let captures = str_pattern_regex
             .captures_iter(&str_value)
