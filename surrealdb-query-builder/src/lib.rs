@@ -5,6 +5,7 @@ pub enum OrderDir {
     Desc,
 }
 
+#[derive(Clone)]
 pub enum Operator {
     Eq,
     Ne,
@@ -27,18 +28,50 @@ impl Display for Operator {
     }
 }
 
-pub struct QueryOptions<'a> {
-    filters: HashMap<&'a str, (Operator, &'a str)>,
+#[derive(Clone)]
+pub enum FilterValue<'a> {
+    Escaped(&'a str),
+    Unsafe(&'a str),
+}
+
+impl<'a> Into<FilterValue<'a>> for &'a str {
+    fn into(self) -> FilterValue<'a> {
+        FilterValue::Escaped(self)
+    }
+}
+
+impl Display for FilterValue<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FilterValue::Escaped(value) => value.fmt(f),
+            FilterValue::Unsafe(value) => value.fmt(f),
+        }
+    }
+}
+
+impl<'a> FilterValue<'a> {
+    pub fn as_str(&self) -> &'a str {
+        match self {
+            FilterValue::Escaped(value) => value,
+            FilterValue::Unsafe(value) => value,
+        }
+    }
+}
+
+pub struct QueryOptions<'a, T: Into<FilterValue<'a>>> {
+    filters: HashMap<&'a str, (Operator, T)>,
+    expansions: &'a [(&'a str, &'a str)],
     limit: Option<usize>,
     offset: Option<usize>,
     order_by: Option<&'a str>,
     order_dir: Option<OrderDir>,
 }
 
-impl<'a> QueryOptions<'a> {
+impl<'a, T: Into<FilterValue<'a>> + Clone> QueryOptions<'a, T> {
     pub fn new() -> Self {
         Self {
             filters: HashMap::new(),
+            expansions: &[],
             limit: None,
             offset: None,
             order_by: None,
@@ -51,7 +84,26 @@ impl<'a> QueryOptions<'a> {
         table_name: &str,
         columns: &[&str],
     ) -> (Box<str>, HashMap<Box<str>, &'a str>) {
-        let mut query = format!("SELECT {} FROM {}", columns.join(","), table_name);
+        let expansions = self
+            .expansions
+            .into_iter()
+            .map(|(expansion, key)| format!("({}) AS {}", key, expansion).into_boxed_str())
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let expansions = if expansions.is_empty() {
+            expansions
+        } else {
+            format!(",{}", expansions)
+        };
+
+        let mut query = format!(
+            "SELECT {}{} FROM {}",
+            columns.join(","),
+            expansions,
+            table_name
+        );
+
         let mut variables = HashMap::new();
 
         if self.filters.len() > 0 {
@@ -59,8 +111,18 @@ impl<'a> QueryOptions<'a> {
 
             let mut filters_query_vec = self
                 .filters
-                .iter()
-                .map(|(key, (operator, _))| format!("{} {} {}", key, operator, format!("${}", key)))
+                .clone()
+                .into_iter()
+                .map(
+                    |(key, (operator, value))| match <T as Into<FilterValue<'a>>>::into(value) {
+                        FilterValue::Escaped(_) => {
+                            format!("{} {} {}", key, operator, format!("${}", key))
+                        }
+                        FilterValue::Unsafe(value) => {
+                            format!("{} {} {}", key, operator, value)
+                        }
+                    },
+                )
                 .collect::<Vec<_>>();
 
             filters_query_vec.sort_unstable();
@@ -70,7 +132,14 @@ impl<'a> QueryOptions<'a> {
             variables = self
                 .filters
                 .into_iter()
-                .map(|(key, (_, value))| (format!("${}", key).into_boxed_str(), value))
+                .filter_map(
+                    |(key, (_, value))| match <T as Into<FilterValue<'a>>>::into(value) {
+                        FilterValue::Escaped(value) => {
+                            Some((format!("${}", key).into_boxed_str(), value))
+                        }
+                        FilterValue::Unsafe(_) => None,
+                    },
+                )
                 .collect();
 
             push_query_str(&mut query, filters_query.as_ref());
@@ -139,6 +208,7 @@ mod tests {
     async fn it_builds_the_correct_query_with_one_filter() {
         let opts = QueryOptions {
             filters: HashMap::from([("name", (Operator::Eq, "tester testermann"))]),
+            expansions: &[],
             limit: Some(10),
             offset: Some(0),
             order_by: Some("id"),
@@ -159,12 +229,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn it_accepts_unsafe_filters() {
+        let opts = QueryOptions {
+            filters: HashMap::from([(
+                "name",
+                (Operator::Eq, FilterValue::Unsafe("\"unsafe person\"")),
+            )]),
+            expansions: &[],
+            limit: Some(10),
+            offset: Some(0),
+            order_by: Some("id"),
+            order_dir: Some(OrderDir::Asc),
+        };
+
+        let query = opts.build("users", &["id", "name"]);
+
+        assert_eq!(
+            query.0.as_ref(),
+            "SELECT id,name FROM users WHERE name = \"unsafe person\" ORDER BY id ASC LIMIT 10 START 0"
+        );
+        assert_eq!(query.1, [].into());
+
+        let db = set_up_db().await;
+
+        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+    }
+
+    #[tokio::test]
     async fn it_builds_the_correct_query_with_multiple_filters() {
         let opts = QueryOptions {
             filters: HashMap::from([
                 ("name", (Operator::Eq, "tester testermann")),
                 ("id", (Operator::Ne, "1")),
             ]),
+            expansions: &[],
             limit: Some(10),
             offset: Some(0),
             order_by: Some("id"),
@@ -190,8 +288,9 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_filters() {
-        let opts = QueryOptions {
+        let opts = QueryOptions::<&str> {
             filters: HashMap::new(),
+            expansions: &[],
             limit: Some(10),
             offset: Some(0),
             order_by: Some("id"),
@@ -212,8 +311,9 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_limit() {
-        let opts = QueryOptions {
+        let opts = QueryOptions::<&str> {
             filters: HashMap::new(),
+            expansions: &[],
             limit: None,
             offset: Some(0),
             order_by: Some("id"),
@@ -234,8 +334,9 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_offset() {
-        let opts = QueryOptions {
+        let opts = QueryOptions::<&str> {
             filters: HashMap::new(),
+            expansions: &[],
             limit: Some(10),
             offset: None,
             order_by: Some("id"),
@@ -256,8 +357,9 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_order_by() {
-        let opts = QueryOptions {
+        let opts = QueryOptions::<&str> {
             filters: HashMap::new(),
+            expansions: &[],
             limit: Some(10),
             offset: Some(0),
             order_by: None,
@@ -278,8 +380,9 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_order_dir() {
-        let opts = QueryOptions {
+        let opts = QueryOptions::<&str> {
             filters: HashMap::new(),
+            expansions: &[],
             limit: Some(10),
             offset: Some(0),
             order_by: Some("id"),
@@ -300,8 +403,9 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_order_dir_desc() {
-        let opts = QueryOptions {
+        let opts = QueryOptions::<&str> {
             filters: HashMap::new(),
+            expansions: &[],
             limit: Some(10),
             offset: Some(0),
             order_by: Some("id"),
@@ -322,8 +426,9 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_order_dir_asc() {
-        let opts = QueryOptions {
+        let opts = QueryOptions::<&str> {
             filters: HashMap::new(),
+            expansions: &[],
             limit: Some(10),
             offset: Some(0),
             order_by: Some("id"),
@@ -353,6 +458,7 @@ mod tests {
                 ("month_of_birth", (Operator::Lt, "10")),
                 ("day_of_birth", (Operator::Le, "10")),
             ]),
+            expansions: &[],
             limit: Some(10),
             offset: Some(0),
             order_by: Some("id"),
@@ -382,6 +488,7 @@ mod tests {
                 ("month_of_birth", (Operator::Lt, "10")),
                 ("day_of_birth", (Operator::Le, "10")),
             ]),
+            expansions: &[],
             limit: Some(10),
             offset: Some(0),
             order_by: Some("id"),
@@ -401,6 +508,73 @@ mod tests {
                 ("$day_of_birth".into(), "10")
             ]
             .into()
-        )
+        );
+
+        let db = set_up_db().await;
+
+        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn it_supports_expansions() {
+        let opts = QueryOptions::<&str> {
+            filters: HashMap::new(),
+            expansions: &[("purchases", "->purchased.out")],
+            limit: Some(10),
+            offset: Some(0),
+            order_by: Some("id"),
+            order_dir: Some(OrderDir::Asc),
+        };
+
+        let query = opts.build("users", &["id", "name"]);
+
+        assert_eq!(
+            query.0.as_ref(),
+            "SELECT id,name,(->purchased.out) AS purchases FROM users ORDER BY id ASC LIMIT 10 START 0"
+        );
+
+        let db = set_up_db().await;
+
+        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn it_works_with_multiple_expansions() {
+        let orders_query = QueryOptions {
+            filters: HashMap::from([("user", (Operator::Eq, FilterValue::Unsafe("$parent.id")))]),
+            expansions: &[],
+            limit: None,
+            offset: None,
+            order_by: None,
+            order_dir: None,
+        }
+        .build("orders", &["*"]);
+
+        let opts = QueryOptions::<&str> {
+            filters: HashMap::new(),
+            expansions: &[
+                ("purchases", "->purchased.out"),
+                ("orders", orders_query.0.as_ref()),
+            ],
+            limit: Some(10),
+            offset: Some(0),
+            order_by: Some("id"),
+            order_dir: Some(OrderDir::Asc),
+        };
+
+        let query = opts.build("users", &["id", "name"]);
+
+        assert_eq!(
+            query.0.as_ref(),
+            "SELECT id,name,(->purchased.out) AS purchases,(SELECT * FROM orders WHERE user = $parent.id) AS orders FROM users ORDER BY id ASC LIMIT 10 START 0"
+        );
+
+        let db = set_up_db().await;
+
+        db.query(query.0.as_ref())
+            .bind(query.1)
+            .bind(orders_query.1)
+            .await
+            .unwrap();
     }
 }
