@@ -36,6 +36,7 @@ impl<'a> FilterValue<'a> {
     }
 }
 
+#[derive(Default)]
 pub struct Filters<'a, T>(pub HashMap<&'a str, (Operator, T)>);
 
 impl<'a, T> Deref for Filters<'a, T> {
