@@ -2866,6 +2866,7 @@ name = "surrealdb-query-builder"
 version = "0.1.0"
 dependencies = [
  "regex",
+ "serde",
  "surrealdb-beta",
  "tokio",
 ]
