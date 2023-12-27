@@ -1,5 +1,7 @@
 use std::{collections::HashMap, fmt::Display};
 
+use regex::Regex;
+
 pub enum OrderDir {
     Asc,
     Desc,
@@ -59,12 +61,12 @@ impl<'a> FilterValue<'a> {
 }
 
 pub struct QueryOptions<'a, T: Into<FilterValue<'a>>> {
-    filters: HashMap<&'a str, (Operator, T)>,
-    expansions: &'a [(&'a str, &'a str)],
-    limit: Option<usize>,
-    offset: Option<usize>,
-    order_by: Option<&'a str>,
-    order_dir: Option<OrderDir>,
+    pub filters: HashMap<&'a str, (Operator, T)>,
+    pub expansions: &'a [(&'a str, &'a str)],
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
+    pub order_by: Option<&'a str>,
+    pub order_dir: Option<OrderDir>,
 }
 
 impl<'a, T: Into<FilterValue<'a>> + Clone> QueryOptions<'a, T> {
@@ -82,12 +84,16 @@ impl<'a, T: Into<FilterValue<'a>> + Clone> QueryOptions<'a, T> {
     pub fn build(
         self,
         table_name: &str,
-        columns: &[&str],
+        unsafe_columns: &[&str],
     ) -> (Box<str>, HashMap<Box<str>, &'a str>) {
         let expansions = self
             .expansions
             .into_iter()
-            .map(|(expansion, key)| format!("({}) AS {}", key, expansion).into_boxed_str())
+            .filter_map(|(unsafe_key, expansion)| {
+                let key = sanitize(unsafe_key)?;
+
+                Some(format!("({}) AS {}", expansion, key).into_boxed_str())
+            })
             .collect::<Vec<_>>()
             .join(",");
 
@@ -99,7 +105,7 @@ impl<'a, T: Into<FilterValue<'a>> + Clone> QueryOptions<'a, T> {
 
         let mut query = format!(
             "SELECT {}{} FROM {}",
-            columns.join(","),
+            unsafe_columns.join(","),
             expansions,
             table_name
         );
@@ -113,16 +119,18 @@ impl<'a, T: Into<FilterValue<'a>> + Clone> QueryOptions<'a, T> {
                 .filters
                 .clone()
                 .into_iter()
-                .map(
-                    |(key, (operator, value))| match <T as Into<FilterValue<'a>>>::into(value) {
+                .filter_map(|(unsafe_key, (operator, value))| {
+                    let key = sanitize(unsafe_key)?;
+
+                    match <T as Into<FilterValue<'a>>>::into(value) {
                         FilterValue::Escaped(_) => {
-                            format!("{} {} {}", key, operator, format!("${}", key))
+                            Some(format!("{} {} {}", key, operator, format!("${}", key)))
                         }
                         FilterValue::Unsafe(value) => {
-                            format!("{} {} {}", key, operator, value)
+                            Some(format!("{} {} {}", key, operator, value))
                         }
-                    },
-                )
+                    }
+                })
                 .collect::<Vec<_>>();
 
             filters_query_vec.sort_unstable();
@@ -132,14 +140,16 @@ impl<'a, T: Into<FilterValue<'a>> + Clone> QueryOptions<'a, T> {
             variables = self
                 .filters
                 .into_iter()
-                .filter_map(
-                    |(key, (_, value))| match <T as Into<FilterValue<'a>>>::into(value) {
+                .filter_map(|(unsafe_key, (_, value))| {
+                    let key = sanitize(unsafe_key)?;
+
+                    match <T as Into<FilterValue<'a>>>::into(value) {
                         FilterValue::Escaped(value) => {
                             Some((format!("${}", key).into_boxed_str(), value))
                         }
                         FilterValue::Unsafe(_) => None,
-                    },
-                )
+                    }
+                })
                 .collect();
 
             push_query_str(&mut query, filters_query.as_ref());
@@ -168,6 +178,14 @@ impl<'a, T: Into<FilterValue<'a>> + Clone> QueryOptions<'a, T> {
     }
 }
 
+fn sanitize<'a>(value: &'a str) -> Option<&'a str> {
+    let regex = Regex::new(r"\w+").unwrap();
+
+    let value = regex.captures(value)?.get(0)?.as_str();
+
+    Some(value)
+}
+
 fn push_query_str(query: &mut String, value: &str) {
     query.push(' ');
     query.push_str(value);
@@ -192,12 +210,8 @@ mod tests {
 
         db.query("DEFINE NAMESPACE test")
             .query("DEFINE DATABASE test")
-            .query("DEFINE TABLE users SCHEMAFULL")
-            .query("DEFINE FIELD name ON TABLE users TYPE string")
-            .query("DEFINE FIELD age ON TABLE users TYPE int")
-            .query("DEFINE FIELD year_of_birth ON TABLE users TYPE int")
-            .query("DEFINE FIELD month_of_birth ON TABLE users TYPE int")
-            .query("DEFINE FIELD day_of_birth ON TABLE users TYPE int")
+            .query("DEFINE TABLE user SCHEMAFULL")
+            .query("DEFINE FIELD name ON TABLE user TYPE string")
             .await
             .unwrap();
 
@@ -215,11 +229,11 @@ mod tests {
             order_dir: Some(OrderDir::Asc),
         };
 
-        let query = opts.build("users", &["id", "name"]);
+        let query = opts.build("user", &["id", "name"]);
 
         assert_eq!(
             query.0.as_ref(),
-            "SELECT id,name FROM users WHERE name = $name ORDER BY id ASC LIMIT 10 START 0"
+            "SELECT id,name FROM user WHERE name = $name ORDER BY id ASC LIMIT 10 START 0"
         );
         assert_eq!(query.1, [("$name".into(), "tester testermann")].into());
 
@@ -242,11 +256,11 @@ mod tests {
             order_dir: Some(OrderDir::Asc),
         };
 
-        let query = opts.build("users", &["id", "name"]);
+        let query = opts.build("user", &["id", "name"]);
 
         assert_eq!(
             query.0.as_ref(),
-            "SELECT id,name FROM users WHERE name = \"unsafe person\" ORDER BY id ASC LIMIT 10 START 0"
+            "SELECT id,name FROM user WHERE name = \"unsafe person\" ORDER BY id ASC LIMIT 10 START 0"
         );
         assert_eq!(query.1, [].into());
 
@@ -269,11 +283,11 @@ mod tests {
             order_dir: Some(OrderDir::Asc),
         };
 
-        let query = opts.build("users", &["id", "name"]);
+        let query = opts.build("user", &["id", "name"]);
 
         assert_eq!(
             query.0.as_ref(),
-            "SELECT id,name FROM users WHERE id != $id AND name = $name ORDER BY id ASC LIMIT 10 START 0"
+            "SELECT id,name FROM user WHERE id != $id AND name = $name ORDER BY id ASC LIMIT 10 START 0"
         );
 
         assert_eq!(
@@ -297,11 +311,11 @@ mod tests {
             order_dir: Some(OrderDir::Asc),
         };
 
-        let query = opts.build("users", &["id", "name"]);
+        let query = opts.build("user", &["id", "name"]);
 
         assert_eq!(
             query.0.as_ref(),
-            "SELECT id,name FROM users ORDER BY id ASC LIMIT 10 START 0"
+            "SELECT id,name FROM user ORDER BY id ASC LIMIT 10 START 0"
         );
 
         let db = set_up_db().await;
@@ -320,11 +334,11 @@ mod tests {
             order_dir: Some(OrderDir::Asc),
         };
 
-        let query = opts.build("users", &["id", "name"]);
+        let query = opts.build("user", &["id", "name"]);
 
         assert_eq!(
             query.0.as_ref(),
-            "SELECT id,name FROM users ORDER BY id ASC START 0"
+            "SELECT id,name FROM user ORDER BY id ASC START 0"
         );
 
         let db = set_up_db().await;
@@ -343,11 +357,11 @@ mod tests {
             order_dir: Some(OrderDir::Asc),
         };
 
-        let query = opts.build("users", &["id", "name"]);
+        let query = opts.build("user", &["id", "name"]);
 
         assert_eq!(
             query.0.as_ref(),
-            "SELECT id,name FROM users ORDER BY id ASC LIMIT 10"
+            "SELECT id,name FROM user ORDER BY id ASC LIMIT 10"
         );
 
         let db = set_up_db().await;
@@ -366,11 +380,11 @@ mod tests {
             order_dir: Some(OrderDir::Asc),
         };
 
-        let query = opts.build("users", &["id", "name"]);
+        let query = opts.build("user", &["id", "name"]);
 
         assert_eq!(
             query.0.as_ref(),
-            "SELECT id,name FROM users LIMIT 10 START 0"
+            "SELECT id,name FROM user LIMIT 10 START 0"
         );
 
         let db = set_up_db().await;
@@ -389,11 +403,11 @@ mod tests {
             order_dir: None,
         };
 
-        let query = opts.build("users", &["id", "name"]);
+        let query = opts.build("user", &["id", "name"]);
 
         assert_eq!(
             query.0.as_ref(),
-            "SELECT id,name FROM users ORDER BY id LIMIT 10 START 0"
+            "SELECT id,name FROM user ORDER BY id LIMIT 10 START 0"
         );
 
         let db = set_up_db().await;
@@ -412,11 +426,11 @@ mod tests {
             order_dir: Some(OrderDir::Desc),
         };
 
-        let query = opts.build("users", &["id", "name"]);
+        let query = opts.build("user", &["id", "name"]);
 
         assert_eq!(
             query.0.as_ref(),
-            "SELECT id,name FROM users ORDER BY id DESC LIMIT 10 START 0"
+            "SELECT id,name FROM user ORDER BY id DESC LIMIT 10 START 0"
         );
 
         let db = set_up_db().await;
@@ -435,11 +449,11 @@ mod tests {
             order_dir: Some(OrderDir::Asc),
         };
 
-        let query = opts.build("users", &["id", "name"]);
+        let query = opts.build("user", &["id", "name"]);
 
         assert_eq!(
             query.0.as_ref(),
-            "SELECT id,name FROM users ORDER BY id ASC LIMIT 10 START 0"
+            "SELECT id,name FROM user ORDER BY id ASC LIMIT 10 START 0"
         );
 
         let db = set_up_db().await;
@@ -465,11 +479,11 @@ mod tests {
             order_dir: Some(OrderDir::Asc),
         };
 
-        let query = opts.build("users", &["id", "name"]);
+        let query = opts.build("user", &["id", "name"]);
 
         assert_eq!(
             query.0.as_ref(),
-            "SELECT id,name FROM users WHERE age > $age AND day_of_birth <= $day_of_birth AND id != $id AND month_of_birth < $month_of_birth AND name = $name AND year_of_birth >= $year_of_birth ORDER BY id ASC LIMIT 10 START 0"
+            "SELECT id,name FROM user WHERE age > $age AND day_of_birth <= $day_of_birth AND id != $id AND month_of_birth < $month_of_birth AND name = $name AND year_of_birth >= $year_of_birth ORDER BY id ASC LIMIT 10 START 0"
         );
 
         let db = set_up_db().await;
@@ -495,7 +509,7 @@ mod tests {
             order_dir: Some(OrderDir::Asc),
         };
 
-        let query = opts.build("users", &["id", "name"]);
+        let query = opts.build("user", &["id", "name"]);
 
         assert_eq!(
             query.1,
@@ -526,11 +540,11 @@ mod tests {
             order_dir: Some(OrderDir::Asc),
         };
 
-        let query = opts.build("users", &["id", "name"]);
+        let query = opts.build("user", &["id", "name"]);
 
         assert_eq!(
             query.0.as_ref(),
-            "SELECT id,name,(->purchased.out) AS purchases FROM users ORDER BY id ASC LIMIT 10 START 0"
+            "SELECT id,name,(->purchased.out) AS purchases FROM user ORDER BY id ASC LIMIT 10 START 0"
         );
 
         let db = set_up_db().await;
@@ -562,11 +576,11 @@ mod tests {
             order_dir: Some(OrderDir::Asc),
         };
 
-        let query = opts.build("users", &["id", "name"]);
+        let query = opts.build("user", &["id", "name"]);
 
         assert_eq!(
             query.0.as_ref(),
-            "SELECT id,name,(->purchased.out) AS purchases,(SELECT * FROM orders WHERE user = $parent.id) AS orders FROM users ORDER BY id ASC LIMIT 10 START 0"
+            "SELECT id,name,(->purchased.out) AS purchases,(SELECT * FROM orders WHERE user = $parent.id) AS orders FROM user ORDER BY id ASC LIMIT 10 START 0"
         );
 
         let db = set_up_db().await;
@@ -576,5 +590,57 @@ mod tests {
             .bind(orders_query.1)
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn it_sanitizes_filter_values() {
+        let opts = QueryOptions::<&str> {
+            filters: HashMap::from([(
+                "name = \"hello\"; DELETE user:hello; SELECT * FROM user WHERE name = \"hello\"",
+                (Operator::Eq, "whatever"),
+            )]),
+            expansions: &[],
+            limit: Some(10),
+            offset: Some(0),
+            order_by: Some("id"),
+            order_dir: Some(OrderDir::Asc),
+        };
+
+        let query = opts.build("user", &["id", "name"]);
+
+        assert_eq!(
+            query.0.as_ref(),
+            "SELECT id,name FROM user WHERE name = $name ORDER BY id ASC LIMIT 10 START 0"
+        );
+
+        let db = set_up_db().await;
+
+        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn it_sanitizes_expansion_keys() {
+        let opts = QueryOptions::<&str> {
+            filters: HashMap::new(),
+            expansions: &[(
+                "purchased_items = \"hello\"; DELETE user:hello; SELECT * FROM user WHERE name = \"hello\"",
+                "->purchased.out",
+            )],
+            limit: Some(10),
+            offset: Some(0),
+            order_by: Some("id"),
+            order_dir: Some(OrderDir::Asc),
+        };
+
+        let query = opts.build("user", &["id", "name"]);
+
+        assert_eq!(
+            query.0.as_ref(),
+            "SELECT id,name,(->purchased.out) AS purchased_items FROM user ORDER BY id ASC LIMIT 10 START 0"
+        );
+
+        let db = set_up_db().await;
+
+        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
     }
 }
