@@ -61,12 +61,12 @@ impl<'a> FilterValue<'a> {
 }
 
 pub struct QueryOptions<'a, T: Into<FilterValue<'a>>> {
-    filters: HashMap<&'a str, (Operator, T)>,
-    expansions: &'a [(&'a str, &'a str)],
-    limit: Option<usize>,
-    offset: Option<usize>,
-    order_by: Option<&'a str>,
-    order_dir: Option<OrderDir>,
+    pub filters: HashMap<&'a str, (Operator, T)>,
+    pub expansions: &'a [(&'a str, &'a str)],
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
+    pub order_by: Option<&'a str>,
+    pub order_dir: Option<OrderDir>,
 }
 
 impl<'a, T: Into<FilterValue<'a>> + Clone> QueryOptions<'a, T> {
