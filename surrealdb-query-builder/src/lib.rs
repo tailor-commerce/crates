@@ -61,7 +61,7 @@ mod tests {
         );
         assert_eq!(
             query.1,
-            [("$name".into(), "tester testermann".into())].into()
+            [("name".into(), "tester testermann".into())].into()
         );
 
         let db = set_up_db().await;
@@ -123,8 +123,8 @@ mod tests {
         assert_eq!(
             query.1,
             [
-                ("$name".into(), "tester testermann".into()),
-                ("$id".into(), "1".into())
+                ("name".into(), "tester testermann".into()),
+                ("id".into(), "1".into())
             ]
             .into()
         );
@@ -348,12 +348,12 @@ mod tests {
         assert_eq!(
             query.1,
             HashMap::<Box<str>, Box<str>>::from([
-                ("$name".into(), "tester testermann".into()),
-                ("$id".into(), "1".into()),
-                ("$age".into(), "1".into()),
-                ("$year_of_birth".into(), "5".into()),
-                ("$month_of_birth".into(), "10".into()),
-                ("$day_of_birth".into(), "10".into())
+                ("name".into(), "tester testermann".into()),
+                ("id".into(), "1".into()),
+                ("age".into(), "1".into()),
+                ("year_of_birth".into(), "5".into()),
+                ("month_of_birth".into(), "10".into()),
+                ("day_of_birth".into(), "10".into())
             ])
         );
 

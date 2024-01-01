@@ -94,7 +94,7 @@ impl<'a, T: Into<FilterValue> + Clone> QueryOptions<'a, T> {
 
                     match <T as Into<FilterValue>>::into(value) {
                         FilterValue::Escaped(value) => {
-                            Some((format!("${}", key).into_boxed_str(), value))
+                            Some((key.to_string().into_boxed_str(), value))
                         }
                         FilterValue::Unsafe(_) => None,
                     }
