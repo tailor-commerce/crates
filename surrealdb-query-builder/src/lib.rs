@@ -43,7 +43,7 @@ mod tests {
     async fn it_builds_the_correct_query_with_one_filter() {
         let opts = QueryOptions {
             filters: Filters(HashMap::from([(
-                "name",
+                "name".into(),
                 (Operator::Eq, "tester testermann"),
             )])),
             expansions: &[],
@@ -70,7 +70,7 @@ mod tests {
     async fn it_accepts_unsafe_filters() {
         let opts = QueryOptions {
             filters: Filters(HashMap::from([(
-                "name",
+                "name".into(),
                 (Operator::Eq, FilterValue::Unsafe("\"unsafe person\"")),
             )])),
             expansions: &[],
@@ -97,8 +97,8 @@ mod tests {
     async fn it_builds_the_correct_query_with_multiple_filters() {
         let opts = QueryOptions {
             filters: Filters(HashMap::from([
-                ("name", (Operator::Eq, "tester testermann")),
-                ("id", (Operator::Ne, "1")),
+                ("name".into(), (Operator::Eq, "tester testermann")),
+                ("id".into(), (Operator::Ne, "1")),
             ])),
             expansions: &[],
             limit: Some(10),
@@ -289,12 +289,12 @@ mod tests {
     async fn it_filters_with_the_correct_operators() {
         let opts = QueryOptions {
             filters: Filters(HashMap::from([
-                ("name", (Operator::Eq, "tester testermann")),
-                ("id", (Operator::Ne, "1")),
-                ("age", (Operator::Gt, "1")),
-                ("year_of_birth", (Operator::Ge, "5")),
-                ("month_of_birth", (Operator::Lt, "10")),
-                ("day_of_birth", (Operator::Le, "10")),
+                ("name".into(), (Operator::Eq, "tester testermann")),
+                ("id".into(), (Operator::Ne, "1")),
+                ("age".into(), (Operator::Gt, "1")),
+                ("year_of_birth".into(), (Operator::Ge, "5")),
+                ("month_of_birth".into(), (Operator::Lt, "10")),
+                ("day_of_birth".into(), (Operator::Le, "10")),
             ])),
             expansions: &[],
             limit: Some(10),
@@ -319,12 +319,12 @@ mod tests {
     async fn it_creates_the_correct_variables() {
         let opts = QueryOptions {
             filters: Filters(HashMap::from([
-                ("name", (Operator::Eq, "tester testermann")),
-                ("id", (Operator::Ne, "1")),
-                ("age", (Operator::Gt, "1")),
-                ("year_of_birth", (Operator::Ge, "5")),
-                ("month_of_birth", (Operator::Lt, "10")),
-                ("day_of_birth", (Operator::Le, "10")),
+                ("name".into(), (Operator::Eq, "tester testermann")),
+                ("id".into(), (Operator::Ne, "1")),
+                ("age".into(), (Operator::Gt, "1")),
+                ("year_of_birth".into(), (Operator::Ge, "5")),
+                ("month_of_birth".into(), (Operator::Lt, "10")),
+                ("day_of_birth".into(), (Operator::Le, "10")),
             ])),
             expansions: &[],
             limit: Some(10),
@@ -380,7 +380,7 @@ mod tests {
     async fn it_works_with_multiple_expansions() {
         let orders_query = QueryOptions {
             filters: Filters(HashMap::from([(
-                "user",
+                "user".into(),
                 (Operator::Eq, FilterValue::Unsafe("$parent.id")),
             )])),
             expansions: &[],
@@ -423,7 +423,8 @@ mod tests {
     async fn it_sanitizes_filter_values() {
         let opts = QueryOptions::<&str> {
             filters: Filters(HashMap::from([(
-                "name = \"hello\"; DELETE user:hello; SELECT * FROM user WHERE name = \"hello\"",
+                "name = \"hello\"; DELETE user:hello; SELECT * FROM user WHERE name = \"hello\""
+                    .into(),
                 (Operator::Eq, "whatever"),
             )])),
             expansions: &[],

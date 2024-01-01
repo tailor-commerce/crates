@@ -37,52 +37,42 @@ impl<'a> FilterValue<'a> {
 }
 
 #[derive(Default)]
-pub struct Filters<'a, T>(pub HashMap<&'a str, (Operator, T)>);
+pub struct Filters<T>(pub HashMap<Box<str>, (Operator, T)>);
 
-impl<'a, T> Deref for Filters<'a, T> {
-    type Target = HashMap<&'a str, (Operator, T)>;
+impl<T> Deref for Filters<T> {
+    type Target = HashMap<Box<str>, (Operator, T)>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<'a, T> DerefMut for Filters<'a, T> {
+impl<T> DerefMut for Filters<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<'a, T: Clone> Into<Filters<'a, T>> for &'a [(&'a str, (Operator, T))] {
-    fn into(self) -> Filters<'a, T> {
+impl<T: Clone> Into<Filters<T>> for &[(Box<str>, (Operator, T))] {
+    fn into(self) -> Filters<T> {
         Filters(self.iter().cloned().collect::<HashMap<_, _>>())
     }
 }
 
-impl<'a, T> Into<Filters<'a, T>> for Box<[(&'a str, (Operator, T))]> {
-    fn into(self) -> Filters<'a, T> {
+impl<T> Into<Filters<T>> for Box<[(Box<str>, (Operator, T))]> {
+    fn into(self) -> Filters<T> {
         Filters(self.into_vec().into_iter().collect())
     }
 }
 
-impl<'a, T> Into<Filters<'a, T>> for Vec<(&'a str, (Operator, T))> {
-    fn into(self) -> Filters<'a, T> {
+impl<T> Into<Filters<T>> for Vec<(Box<str>, (Operator, T))> {
+    fn into(self) -> Filters<T> {
         Filters(self.into_iter().collect())
     }
 }
 
-impl<'a, T: Clone> Into<Filters<'a, T>> for &'a [(&'a str, T)] {
-    fn into(self) -> Filters<'a, T> {
-        Filters(
-            self.into_iter()
-                .map(|(key, value)| (*key, (Operator::Eq, value.clone())))
-                .collect::<HashMap<_, _>>(),
-        )
-    }
-}
-
-impl<'a, T> Into<Filters<'a, T>> for Box<[(&'a str, T)]> {
-    fn into(self) -> Filters<'a, T> {
+impl<T> Into<Filters<T>> for Box<[(Box<str>, T)]> {
+    fn into(self) -> Filters<T> {
         Filters(
             self.into_vec()
                 .into_iter()
@@ -92,8 +82,8 @@ impl<'a, T> Into<Filters<'a, T>> for Box<[(&'a str, T)]> {
     }
 }
 
-impl<'a, T> Into<Filters<'a, T>> for Vec<(&'a str, T)> {
-    fn into(self) -> Filters<'a, T> {
+impl<T> Into<Filters<T>> for Vec<(Box<str>, T)> {
+    fn into(self) -> Filters<T> {
         Filters(
             self.into_iter()
                 .map(|(key, value)| (key, (Operator::Eq, value)))

@@ -9,7 +9,7 @@ use crate::{
 };
 
 pub struct QueryOptions<'a, T: Into<FilterValue<'a>>> {
-    pub filters: Filters<'a, T>,
+    pub filters: Filters<T>,
     pub expansions: Expansions<'a>,
     pub limit: Option<usize>,
     pub offset: Option<usize>,
@@ -68,7 +68,7 @@ impl<'a, T: Into<FilterValue<'a>> + Clone> QueryOptions<'a, T> {
                 .clone()
                 .into_iter()
                 .filter_map(|(unsafe_key, (operator, value))| {
-                    let key = sanitize(unsafe_key)?;
+                    let key = sanitize(&unsafe_key)?;
 
                     match <T as Into<FilterValue<'a>>>::into(value) {
                         FilterValue::Escaped(_) => {
@@ -90,7 +90,7 @@ impl<'a, T: Into<FilterValue<'a>> + Clone> QueryOptions<'a, T> {
                 .0
                 .into_iter()
                 .filter_map(|(unsafe_key, (_, value))| {
-                    let key = sanitize(unsafe_key)?;
+                    let key = sanitize(&unsafe_key)?;
 
                     match <T as Into<FilterValue<'a>>>::into(value) {
                         FilterValue::Escaped(value) => {
