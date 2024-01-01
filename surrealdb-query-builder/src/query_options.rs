@@ -8,7 +8,7 @@ use crate::{
     Expansions,
 };
 
-pub struct QueryOptions<'a, T: Into<FilterValue<'a>>> {
+pub struct QueryOptions<'a, T: Into<FilterValue>> {
     pub filters: Filters<T>,
     pub expansions: Expansions<'a>,
     pub limit: Option<usize>,
@@ -17,7 +17,7 @@ pub struct QueryOptions<'a, T: Into<FilterValue<'a>>> {
     pub order_dir: Option<OrderDir>,
 }
 
-impl<'a, T: Into<FilterValue<'a>> + Clone> QueryOptions<'a, T> {
+impl<'a, T: Into<FilterValue> + Clone> QueryOptions<'a, T> {
     pub fn new() -> Self {
         Self {
             filters: Filters(HashMap::new()),
@@ -33,7 +33,7 @@ impl<'a, T: Into<FilterValue<'a>> + Clone> QueryOptions<'a, T> {
         self,
         table_name: &str,
         unsafe_columns: &[&str],
-    ) -> (Box<str>, HashMap<Box<str>, &'a str>) {
+    ) -> (Box<str>, HashMap<Box<str>, Box<str>>) {
         let expansions = self
             .expansions
             .into_iter()
@@ -70,7 +70,7 @@ impl<'a, T: Into<FilterValue<'a>> + Clone> QueryOptions<'a, T> {
                 .filter_map(|(unsafe_key, (operator, value))| {
                     let key = sanitize(&unsafe_key)?;
 
-                    match <T as Into<FilterValue<'a>>>::into(value) {
+                    match <T as Into<FilterValue>>::into(value) {
                         FilterValue::Escaped(_) => {
                             Some(format!("{} {} {}", key, operator, format!("${}", key)))
                         }
@@ -92,7 +92,7 @@ impl<'a, T: Into<FilterValue<'a>> + Clone> QueryOptions<'a, T> {
                 .filter_map(|(unsafe_key, (_, value))| {
                     let key = sanitize(&unsafe_key)?;
 
-                    match <T as Into<FilterValue<'a>>>::into(value) {
+                    match <T as Into<FilterValue>>::into(value) {
                         FilterValue::Escaped(value) => {
                             Some((format!("${}", key).into_boxed_str(), value))
                         }
@@ -132,7 +132,7 @@ fn push_query_str(query: &mut String, value: &str) {
     query.push_str(value);
 }
 
-fn sanitize<'a>(value: &'a str) -> Option<&'a str> {
+fn sanitize(value: &str) -> Option<&str> {
     let regex = Regex::new(r"\w+").unwrap();
 
     let value = regex.captures(value)?.get(0)?.as_str();

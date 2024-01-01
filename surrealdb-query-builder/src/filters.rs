@@ -7,18 +7,30 @@ use std::{
 use crate::operator::Operator;
 
 #[derive(Clone)]
-pub enum FilterValue<'a> {
-    Escaped(&'a str),
-    Unsafe(&'a str),
+pub enum FilterValue {
+    Escaped(Box<str>),
+    Unsafe(Box<str>),
 }
 
-impl<'a> Into<FilterValue<'a>> for &'a str {
-    fn into(self) -> FilterValue<'a> {
+impl Into<FilterValue> for Box<str> {
+    fn into(self) -> FilterValue {
         FilterValue::Escaped(self)
     }
 }
 
-impl Display for FilterValue<'_> {
+impl Into<FilterValue> for String {
+    fn into(self) -> FilterValue {
+        FilterValue::Escaped(self.into())
+    }
+}
+
+impl Into<FilterValue> for &str {
+    fn into(self) -> FilterValue {
+        FilterValue::Escaped(self.into())
+    }
+}
+
+impl Display for FilterValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FilterValue::Escaped(value) => value.fmt(f),
@@ -27,11 +39,11 @@ impl Display for FilterValue<'_> {
     }
 }
 
-impl<'a> FilterValue<'a> {
-    pub fn as_str(&self) -> &'a str {
+impl FilterValue {
+    pub fn as_str(&self) -> &str {
         match self {
-            FilterValue::Escaped(value) => value,
-            FilterValue::Unsafe(value) => value,
+            FilterValue::Escaped(value) => value.as_ref(),
+            FilterValue::Unsafe(value) => value.as_ref(),
         }
     }
 }
@@ -53,40 +65,50 @@ impl<T> DerefMut for Filters<T> {
     }
 }
 
-impl<T: Clone> Into<Filters<T>> for &[(Box<str>, (Operator, T))] {
-    fn into(self) -> Filters<T> {
-        Filters(self.iter().cloned().collect::<HashMap<_, _>>())
-    }
-}
-
-impl<T> Into<Filters<T>> for Box<[(Box<str>, (Operator, T))]> {
-    fn into(self) -> Filters<T> {
-        Filters(self.into_vec().into_iter().collect())
-    }
-}
-
-impl<T> Into<Filters<T>> for Vec<(Box<str>, (Operator, T))> {
-    fn into(self) -> Filters<T> {
-        Filters(self.into_iter().collect())
-    }
-}
-
-impl<T> Into<Filters<T>> for Box<[(Box<str>, T)]> {
+impl<T, S: Into<Box<str>>> Into<Filters<T>> for Box<[(S, (Operator, T))]> {
     fn into(self) -> Filters<T> {
         Filters(
             self.into_vec()
                 .into_iter()
-                .map(|(key, value)| (key, (Operator::Eq, value)))
+                .map(|(key, value)| (key.into(), value))
+                .collect(),
+        )
+    }
+}
+
+impl<T, S: Into<Box<str>>> Into<Filters<T>> for Vec<(S, (Operator, T))> {
+    fn into(self) -> Filters<T> {
+        self.into_boxed_slice().into()
+    }
+}
+
+impl<T: Clone, S: Into<String> + Clone> Into<Filters<T>> for &[(S, (Operator, T))] {
+    fn into(self) -> Filters<T> {
+        Filters(
+            self.into_iter()
+                .cloned()
+                .map(|(key, value)| (key.into().into_boxed_str(), value))
+                .collect(),
+        )
+    }
+}
+
+impl<T, S: Into<String>> Into<Filters<T>> for Box<[(S, T)]> {
+    fn into(self) -> Filters<T> {
+        Filters(
+            self.into_vec()
+                .into_iter()
+                .map(|(key, value)| (key.into().into_boxed_str(), (Operator::Eq, value)))
                 .collect::<HashMap<_, _>>(),
         )
     }
 }
 
-impl<T> Into<Filters<T>> for Vec<(Box<str>, T)> {
+impl<T, S: Into<String>> Into<Filters<T>> for Vec<(S, T)> {
     fn into(self) -> Filters<T> {
         Filters(
             self.into_iter()
-                .map(|(key, value)| (key, (Operator::Eq, value)))
+                .map(|(key, value)| (key.into().into_boxed_str(), (Operator::Eq, value)))
                 .collect::<HashMap<_, _>>(),
         )
     }

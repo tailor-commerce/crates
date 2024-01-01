@@ -41,10 +41,10 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_one_filter() {
-        let opts = QueryOptions {
+        let opts: QueryOptions<Box<str>> = QueryOptions {
             filters: Filters(HashMap::from([(
                 "name".into(),
-                (Operator::Eq, "tester testermann"),
+                (Operator::Eq, "tester testermann".into()),
             )])),
             expansions: &[],
             limit: Some(10),
@@ -59,7 +59,10 @@ mod tests {
             query.0.as_ref(),
             "SELECT id,name FROM user WHERE name = $name ORDER BY id ASC LIMIT 10 START 0"
         );
-        assert_eq!(query.1, [("$name".into(), "tester testermann")].into());
+        assert_eq!(
+            query.1,
+            [("$name".into(), "tester testermann".into())].into()
+        );
 
         let db = set_up_db().await;
 
@@ -71,7 +74,10 @@ mod tests {
         let opts = QueryOptions {
             filters: Filters(HashMap::from([(
                 "name".into(),
-                (Operator::Eq, FilterValue::Unsafe("\"unsafe person\"")),
+                (
+                    Operator::Eq,
+                    FilterValue::Unsafe("\"unsafe person\"".into()),
+                ),
             )])),
             expansions: &[],
             limit: Some(10),
@@ -95,10 +101,10 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_multiple_filters() {
-        let opts = QueryOptions {
+        let opts: QueryOptions<Box<str>> = QueryOptions {
             filters: Filters(HashMap::from([
-                ("name".into(), (Operator::Eq, "tester testermann")),
-                ("id".into(), (Operator::Ne, "1")),
+                ("name".into(), (Operator::Eq, "tester testermann".into())),
+                ("id".into(), (Operator::Ne, "1".into())),
             ])),
             expansions: &[],
             limit: Some(10),
@@ -116,7 +122,11 @@ mod tests {
 
         assert_eq!(
             query.1,
-            [("$name".into(), "tester testermann"), ("$id".into(), "1")].into()
+            [
+                ("$name".into(), "tester testermann".into()),
+                ("$id".into(), "1".into())
+            ]
+            .into()
         );
 
         let db = set_up_db().await;
@@ -126,7 +136,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_filters() {
-        let opts = QueryOptions::<&str> {
+        let opts = QueryOptions::<Box<str>> {
             filters: Filters(HashMap::new()),
             expansions: &[],
             limit: Some(10),
@@ -149,7 +159,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_limit() {
-        let opts = QueryOptions::<&str> {
+        let opts = QueryOptions::<Box<str>> {
             filters: Filters(HashMap::new()),
             expansions: &[],
             limit: None,
@@ -172,7 +182,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_offset() {
-        let opts = QueryOptions::<&str> {
+        let opts = QueryOptions::<Box<str>> {
             filters: Filters(HashMap::new()),
             expansions: &[],
             limit: Some(10),
@@ -195,7 +205,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_order_by() {
-        let opts = QueryOptions::<&str> {
+        let opts = QueryOptions::<String> {
             filters: Filters(HashMap::new()),
             expansions: &[],
             limit: Some(10),
@@ -337,15 +347,14 @@ mod tests {
 
         assert_eq!(
             query.1,
-            [
-                ("$name".into(), "tester testermann"),
-                ("$id".into(), "1"),
-                ("$age".into(), "1"),
-                ("$year_of_birth".into(), "5"),
-                ("$month_of_birth".into(), "10"),
-                ("$day_of_birth".into(), "10")
-            ]
-            .into()
+            HashMap::<Box<str>, Box<str>>::from([
+                ("$name".into(), "tester testermann".into()),
+                ("$id".into(), "1".into()),
+                ("$age".into(), "1".into()),
+                ("$year_of_birth".into(), "5".into()),
+                ("$month_of_birth".into(), "10".into()),
+                ("$day_of_birth".into(), "10".into())
+            ])
         );
 
         let db = set_up_db().await;
@@ -381,7 +390,7 @@ mod tests {
         let orders_query = QueryOptions {
             filters: Filters(HashMap::from([(
                 "user".into(),
-                (Operator::Eq, FilterValue::Unsafe("$parent.id")),
+                (Operator::Eq, FilterValue::Unsafe("$parent.id".into())),
             )])),
             expansions: &[],
             limit: None,
@@ -391,7 +400,7 @@ mod tests {
         }
         .build("orders", &["*"]);
 
-        let opts = QueryOptions::<&str> {
+        let opts = QueryOptions::<Box<str>> {
             filters: Filters(HashMap::new()),
             expansions: &[
                 ("purchases", "->purchased.out"),
@@ -421,11 +430,11 @@ mod tests {
 
     #[tokio::test]
     async fn it_sanitizes_filter_values() {
-        let opts = QueryOptions::<&str> {
+        let opts: QueryOptions<Box<str>> = QueryOptions {
             filters: Filters(HashMap::from([(
                 "name = \"hello\"; DELETE user:hello; SELECT * FROM user WHERE name = \"hello\""
                     .into(),
-                (Operator::Eq, "whatever"),
+                (Operator::Eq, "whatever".into()),
             )])),
             expansions: &[],
             limit: Some(10),
@@ -448,7 +457,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_sanitizes_expansion_keys() {
-        let opts = QueryOptions::<&str> {
+        let opts = QueryOptions::<Box<str>> {
             filters: Filters(HashMap::new()),
             expansions: &[(
                 "purchased_items = \"hello\"; DELETE user:hello; SELECT * FROM user WHERE name = \"hello\"",
