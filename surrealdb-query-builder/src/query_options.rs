@@ -4,6 +4,7 @@ use regex::Regex;
 
 use crate::{
     filters::{FilterValue, Filters},
+    operator::Operator,
     order_dir::OrderDir,
     Expansions,
 };
@@ -33,7 +34,11 @@ impl<'a, T: Into<FilterValue> + Clone> QueryOptions<'a, T> {
         self,
         table_name: &str,
         unsafe_columns: &[&str],
-    ) -> (Box<str>, HashMap<Box<str>, Box<str>>) {
+    ) -> (
+        Box<str>,
+        HashMap<Box<str>, Box<str>>,
+        HashMap<Box<str>, Box<[Box<str>]>>,
+    ) {
         let expansions = self
             .expansions
             .into_iter()
@@ -58,7 +63,8 @@ impl<'a, T: Into<FilterValue> + Clone> QueryOptions<'a, T> {
             table_name
         );
 
-        let mut variables = HashMap::new();
+        let mut string_variables = HashMap::new();
+        let mut array_variables = HashMap::new();
 
         if self.filters.len() > 0 {
             push_query_str(&mut query, "WHERE");
@@ -77,6 +83,13 @@ impl<'a, T: Into<FilterValue> + Clone> QueryOptions<'a, T> {
                         FilterValue::Unsafe(value) => {
                             Some(format!("{} {} {}", key, operator, value))
                         }
+                        FilterValue::EscapedList(_) => {
+                            // Ignore any operator that's not `Eq` when we have an array of values
+                            match operator {
+                                Operator::Eq => Some(format!("{0} CONTAINSANY ${0}", key)),
+                                _ => return None,
+                            }
+                        }
                     }
                 })
                 .collect::<Vec<_>>();
@@ -85,21 +98,28 @@ impl<'a, T: Into<FilterValue> + Clone> QueryOptions<'a, T> {
 
             let filters_query = filters_query_vec.join(" AND ");
 
-            variables = self
-                .filters
-                .0
-                .into_iter()
-                .filter_map(|(unsafe_key, (_, value))| {
-                    let key = sanitize(&unsafe_key)?;
+            for (unsafe_key, (operator, value)) in self.filters.0.into_iter() {
+                let Some(key) = sanitize(&unsafe_key) else {
+                    continue;
+                };
 
-                    match <T as Into<FilterValue>>::into(value) {
-                        FilterValue::Escaped(value) => {
-                            Some((key.to_string().into_boxed_str(), value))
-                        }
-                        FilterValue::Unsafe(_) => None,
+                let filter_value: FilterValue = value.into();
+
+                match filter_value {
+                    FilterValue::Escaped(value) => {
+                        string_variables.insert(key.to_string().into_boxed_str(), value);
                     }
-                })
-                .collect();
+                    FilterValue::EscapedList(values) => {
+                        match operator {
+                            Operator::Eq => {
+                                array_variables.insert(key.to_string().into_boxed_str(), values)
+                            }
+                            _ => continue,
+                        };
+                    }
+                    FilterValue::Unsafe(_) => {}
+                };
+            }
 
             push_query_str(&mut query, filters_query.as_ref());
         }
@@ -123,7 +143,7 @@ impl<'a, T: Into<FilterValue> + Clone> QueryOptions<'a, T> {
             push_query_str(&mut query, format!("START {}", offset).as_str());
         }
 
-        (query.into_boxed_str(), variables)
+        (query.into_boxed_str(), string_variables, array_variables)
     }
 }
 

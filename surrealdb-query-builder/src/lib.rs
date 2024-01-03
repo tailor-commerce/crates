@@ -430,11 +430,11 @@ mod tests {
 
     #[tokio::test]
     async fn it_sanitizes_filter_values() {
-        let opts: QueryOptions<Box<str>> = QueryOptions {
+        let opts = QueryOptions {
             filters: Filters(HashMap::from([(
                 "name = \"hello\"; DELETE user:hello; SELECT * FROM user WHERE name = \"hello\""
                     .into(),
-                (Operator::Eq, "whatever".into()),
+                (Operator::Eq, "whatever"),
             )])),
             expansions: &[],
             limit: Some(10),
@@ -479,5 +479,75 @@ mod tests {
         let db = set_up_db().await;
 
         db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn it_can_filter_values_in_arrays() {
+        let opts = QueryOptions {
+            filters: Filters(HashMap::from([(
+                "tags".into(),
+                (Operator::Eq, vec!["tag1", "tag2"]),
+            )])),
+            expansions: &[],
+            limit: None,
+            offset: None,
+            order_by: None,
+            order_dir: None,
+        };
+
+        let query = opts.build("user", &["id", "name"]);
+
+        assert_eq!(
+            query.0.as_ref(),
+            "SELECT id,name FROM user WHERE tags CONTAINSANY $tags"
+        );
+
+        assert_eq!(
+            query.2.get("tags").unwrap().as_ref(),
+            ["tag1".into(), "tag2".into()]
+        );
+    }
+
+    #[tokio::test]
+    async fn it_ignores_array_filters_for_operators_other_than_eq() {
+        let opts = QueryOptions {
+            filters: Filters(HashMap::from([
+                ("not_equal".into(), (Operator::Ne, vec!["value1", "value2"])),
+                (
+                    "less_than_or_equal".into(),
+                    (Operator::Le, vec!["value1", "value2"]),
+                ),
+                ("less_than".into(), (Operator::Lt, vec!["value1", "value2"])),
+                (
+                    "greater_than_or_equal".into(),
+                    (Operator::Ge, vec!["value1", "value2"]),
+                ),
+                (
+                    "greater_than".into(),
+                    (Operator::Gt, vec!["value1", "value2"]),
+                ),
+                ("equal".into(), (Operator::Eq, vec!["value1", "value2"])),
+            ])),
+            expansions: &[],
+            limit: None,
+            offset: None,
+            order_by: None,
+            order_dir: None,
+        };
+
+        let query = opts.build("user", &["id", "name"]);
+
+        assert_eq!(
+            query.0.as_ref(),
+            "SELECT id,name FROM user WHERE equal CONTAINSANY $equal"
+        );
+
+        assert_eq!(
+            query.2.into_iter().collect::<Vec<_>>(),
+            [(
+                "equal".into(),
+                vec!["value1".into(), "value2".into()].into()
+            )]
+        );
     }
 }
