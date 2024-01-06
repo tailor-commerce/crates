@@ -75,18 +75,24 @@ impl<'a, T: Into<FilterValue> + Clone> QueryOptions<'a, T> {
                 .into_iter()
                 .filter_map(|(unsafe_key, (operator, value))| {
                     let key = sanitize(&unsafe_key)?;
+                    let variable_ident = to_variable_ident(key);
 
                     match <T as Into<FilterValue>>::into(value) {
-                        FilterValue::Escaped(_) => {
-                            Some(format!("{} {} {}", key, operator, format!("${}", key)))
-                        }
+                        FilterValue::Escaped(_) => Some(format!(
+                            "{} {} {}",
+                            key,
+                            operator,
+                            format!("${}", variable_ident)
+                        )),
                         FilterValue::Unsafe(value) => {
                             Some(format!("{} {} {}", key, operator, value))
                         }
                         FilterValue::EscapedList(_) => {
                             // Ignore any operator that's not `Eq` when we have an array of values
                             match operator {
-                                Operator::Eq => Some(format!("{0} CONTAINSANY ${0}", key)),
+                                Operator::Eq => {
+                                    Some(format!("{} CONTAINSANY ${}", key, variable_ident))
+                                }
                                 _ => return None,
                             }
                         }
@@ -103,17 +109,18 @@ impl<'a, T: Into<FilterValue> + Clone> QueryOptions<'a, T> {
                     continue;
                 };
 
+                let variable_ident = to_variable_ident(key);
+
                 let filter_value: FilterValue = value.into();
 
                 match filter_value {
                     FilterValue::Escaped(value) => {
-                        string_variables.insert(key.to_string().into_boxed_str(), value);
+                        string_variables.insert(variable_ident.to_string().into_boxed_str(), value);
                     }
                     FilterValue::EscapedList(values) => {
                         match operator {
-                            Operator::Eq => {
-                                array_variables.insert(key.to_string().into_boxed_str(), values)
-                            }
+                            Operator::Eq => array_variables
+                                .insert(variable_ident.to_string().into_boxed_str(), values),
                             _ => continue,
                         };
                     }
@@ -153,9 +160,13 @@ fn push_query_str(query: &mut String, value: &str) {
 }
 
 fn sanitize(value: &str) -> Option<&str> {
-    let regex = Regex::new(r"\w+").unwrap();
+    let regex = Regex::new(r"[\w\.]+").unwrap();
 
     let value = regex.captures(value)?.get(0)?.as_str();
 
     Some(value)
+}
+
+fn to_variable_ident(value: &str) -> Box<str> {
+    value.replace('.', "_").into_boxed_str()
 }

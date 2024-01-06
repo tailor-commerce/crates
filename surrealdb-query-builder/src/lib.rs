@@ -66,7 +66,11 @@ mod tests {
 
         let db = set_up_db().await;
 
-        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+        db.query(query.0.as_ref())
+            .bind(query.1)
+            .bind(query.2)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -96,7 +100,11 @@ mod tests {
 
         let db = set_up_db().await;
 
-        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+        db.query(query.0.as_ref())
+            .bind(query.1)
+            .bind(query.2)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -131,7 +139,11 @@ mod tests {
 
         let db = set_up_db().await;
 
-        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+        db.query(query.0.as_ref())
+            .bind(query.1)
+            .bind(query.2)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -322,7 +334,11 @@ mod tests {
 
         let db = set_up_db().await;
 
-        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+        db.query(query.0.as_ref())
+            .bind(query.1)
+            .bind(query.2)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -359,7 +375,11 @@ mod tests {
 
         let db = set_up_db().await;
 
-        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+        db.query(query.0.as_ref())
+            .bind(query.1)
+            .bind(query.2)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -382,7 +402,11 @@ mod tests {
 
         let db = set_up_db().await;
 
-        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+        db.query(query.0.as_ref())
+            .bind(query.1)
+            .bind(query.2)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -423,13 +447,15 @@ mod tests {
 
         db.query(query.0.as_ref())
             .bind(query.1)
+            .bind(query.2)
             .bind(orders_query.1)
+            .bind(orders_query.2)
             .await
             .unwrap();
     }
 
     #[tokio::test]
-    async fn it_sanitizes_filter_values() {
+    async fn it_sanitizes_filter_keys() {
         let opts = QueryOptions {
             filters: Filters(HashMap::from([(
                 "name = \"hello\"; DELETE user:hello; SELECT * FROM user WHERE name = \"hello\""
@@ -451,8 +477,42 @@ mod tests {
         );
 
         let db = set_up_db().await;
+        db.query(query.0.as_ref())
+            .bind(query.1)
+            .bind(query.2)
+            .await
+            .unwrap();
+    }
 
-        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+    #[tokio::test]
+    async fn it_allows_dots_in_the_filter_key() {
+        let opts = QueryOptions {
+            filters: Filters(HashMap::from([(
+                "tag.name".into(),
+                (Operator::Eq, "whatever"),
+            )])),
+            expansions: &[],
+            limit: Some(10),
+            offset: Some(0),
+            order_by: Some("id"),
+            order_dir: Some(OrderDir::Asc),
+        };
+
+        let query = opts.build("user", &["id", "tag"]);
+
+        assert_eq!(
+            query.0.as_ref(),
+            "SELECT id,tag FROM user WHERE tag.name = $tag_name ORDER BY id ASC LIMIT 10 START 0"
+        );
+
+        assert_eq!(query.1.get("tag_name"), Some(&"whatever".into()));
+
+        let db = set_up_db().await;
+        db.query(query.0.as_ref())
+            .bind(query.1)
+            .bind(query.2)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -478,7 +538,11 @@ mod tests {
 
         let db = set_up_db().await;
 
-        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+        db.query(query.0.as_ref())
+            .bind(query.1)
+            .bind(query.2)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
