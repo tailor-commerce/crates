@@ -352,8 +352,9 @@ mod tests {
                 ("id".into(), (Operator::Ne, "1".into())),
                 ("age".into(), (Operator::Gt, "1".into())),
                 ("year_of_birth".into(), (Operator::Ge, "5".into())),
-                ("month_of_birth".into(), (Operator::Lt, "10".into())),
-                ("day_of_birth".into(), (Operator::Le, "10".into())),
+                ("month_of_birth".into(), (Operator::Lt, 10.into())),
+                ("day_of_birth".into(), (Operator::Le, 10.into())),
+                ("is_active".into(), (Operator::Eq, true.into())),
             ])),
             expansions: &[],
             limit: Some(10),
@@ -371,8 +372,9 @@ mod tests {
                 ("id".into(), "1".into()),
                 ("age".into(), "1".into()),
                 ("year_of_birth".into(), "5".into()),
-                ("month_of_birth".into(), "10".into()),
-                ("day_of_birth".into(), "10".into())
+                ("month_of_birth".into(), 10.into()),
+                ("day_of_birth".into(), 10.into()),
+                ("is_active".into(), true.into())
             ])
         );
 
