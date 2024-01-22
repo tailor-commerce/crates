@@ -14,6 +14,7 @@ pub enum FilterValueKind {
     Int(i64),
     UInt(u64),
     Float(f64),
+    Bool(bool),
 }
 
 impl Into<FilterValueKind> for &str {
@@ -70,6 +71,12 @@ impl Into<FilterValueKind> for f32 {
     }
 }
 
+impl Into<FilterValueKind> for bool {
+    fn into(self) -> FilterValueKind {
+        FilterValueKind::Bool(self)
+    }
+}
+
 impl Display for FilterValueKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -77,6 +84,7 @@ impl Display for FilterValueKind {
             FilterValueKind::Int(value) => value.fmt(f),
             FilterValueKind::UInt(value) => value.fmt(f),
             FilterValueKind::Float(value) => value.fmt(f),
+            FilterValueKind::Bool(value) => value.fmt(f),
         }
     }
 }
@@ -143,6 +151,12 @@ impl Into<FilterValue> for u32 {
 }
 
 impl Into<FilterValue> for f32 {
+    fn into(self) -> FilterValue {
+        FilterValue::Escaped(self.into())
+    }
+}
+
+impl Into<FilterValue> for bool {
     fn into(self) -> FilterValue {
         FilterValue::Escaped(self.into())
     }
