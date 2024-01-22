@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     fmt::Display,
     ops::{Deref, DerefMut},
 };
@@ -9,6 +8,7 @@ use serde::Serialize;
 use crate::operator::Operator;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(untagged)]
 pub enum FilterValueKind {
     String(Box<str>),
     Int(i64),
@@ -89,7 +89,8 @@ impl Display for FilterValueKind {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(untagged)]
 pub enum FilterValue {
     Escaped(FilterValueKind),
     Unsafe(FilterValueKind),
@@ -193,10 +194,10 @@ impl Display for FilterValue {
 }
 
 #[derive(Default)]
-pub struct Filters(pub HashMap<Box<str>, (Operator, FilterValue)>);
+pub struct Filters(pub Box<[(Box<str>, (Operator, FilterValue))]>);
 
 impl Deref for Filters {
-    type Target = HashMap<Box<str>, (Operator, FilterValue)>;
+    type Target = Box<[(Box<str>, (Operator, FilterValue))]>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -239,7 +240,7 @@ impl<T: Into<FilterValue>, S: Into<String>> Into<Filters> for Vec<(S, T)> {
         Filters(
             self.into_iter()
                 .map(|(key, value)| (key.into().into_boxed_str(), (Operator::Eq, value.into())))
-                .collect::<HashMap<_, _>>(),
+                .collect(),
         )
     }
 }

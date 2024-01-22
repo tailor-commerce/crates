@@ -9,6 +9,7 @@ pub type Expansions<'a> = &'a [(&'a str, &'a str)];
 mod tests {
     use std::collections::HashMap;
 
+    use serde::Deserialize;
     use surrealdb::{
         engine::local::{Db, Mem},
         opt::Config,
@@ -42,7 +43,7 @@ mod tests {
     #[tokio::test]
     async fn it_builds_the_correct_query_with_one_filter() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::from([(
+            filters: Filters(Box::from([(
                 "name".into(),
                 (
                     Operator::Eq,
@@ -69,17 +70,13 @@ mod tests {
 
         let db = set_up_db().await;
 
-        db.query(query.0.as_ref())
-            .bind(query.1)
-            .bind(query.2)
-            .await
-            .unwrap();
+        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
     }
 
     #[tokio::test]
     async fn it_accepts_unsafe_filters() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::from([(
+            filters: Filters(Box::from([(
                 "name".into(),
                 (
                     Operator::Eq,
@@ -103,17 +100,13 @@ mod tests {
 
         let db = set_up_db().await;
 
-        db.query(query.0.as_ref())
-            .bind(query.1)
-            .bind(query.2)
-            .await
-            .unwrap();
+        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
     }
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_multiple_filters() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::from([
+            filters: Filters(Box::from([
                 ("name".into(), (Operator::Eq, "tester testermann".into())),
                 ("id".into(), (Operator::Ne, "1".into())),
             ])),
@@ -142,17 +135,13 @@ mod tests {
 
         let db = set_up_db().await;
 
-        db.query(query.0.as_ref())
-            .bind(query.1)
-            .bind(query.2)
-            .await
-            .unwrap();
+        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
     }
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_filters() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::new()),
+            filters: Filters(Box::new([])),
             expansions: &[],
             limit: Some(10),
             offset: Some(0),
@@ -175,7 +164,7 @@ mod tests {
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_limit() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::new()),
+            filters: Filters(Box::new([])),
             expansions: &[],
             limit: None,
             offset: Some(0),
@@ -198,7 +187,7 @@ mod tests {
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_offset() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::new()),
+            filters: Filters(Box::new([])),
             expansions: &[],
             limit: Some(10),
             offset: None,
@@ -221,7 +210,7 @@ mod tests {
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_order_by() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::new()),
+            filters: Filters(Box::new([])),
             expansions: &[],
             limit: Some(10),
             offset: Some(0),
@@ -244,7 +233,7 @@ mod tests {
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_order_dir() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::new()),
+            filters: Filters(Box::new([])),
             expansions: &[],
             limit: Some(10),
             offset: Some(0),
@@ -267,7 +256,7 @@ mod tests {
     #[tokio::test]
     async fn it_builds_the_correct_query_with_order_dir_desc() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::new()),
+            filters: Filters(Box::new([])),
             expansions: &[],
             limit: Some(10),
             offset: Some(0),
@@ -290,7 +279,7 @@ mod tests {
     #[tokio::test]
     async fn it_builds_the_correct_query_with_order_dir_asc() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::new()),
+            filters: Filters(Box::new([])),
             expansions: &[],
             limit: Some(10),
             offset: Some(0),
@@ -313,7 +302,7 @@ mod tests {
     #[tokio::test]
     async fn it_filters_with_the_correct_operators() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::from([
+            filters: Filters(Box::from([
                 ("name".into(), (Operator::Eq, "tester testermann".into())),
                 ("id".into(), (Operator::Ne, "1".into())),
                 ("age".into(), (Operator::Gt, "1".into())),
@@ -337,17 +326,13 @@ mod tests {
 
         let db = set_up_db().await;
 
-        db.query(query.0.as_ref())
-            .bind(query.1)
-            .bind(query.2)
-            .await
-            .unwrap();
+        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
     }
 
     #[tokio::test]
     async fn it_creates_the_correct_variables() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::from([
+            filters: Filters(Box::from([
                 ("name".into(), (Operator::Eq, "tester testermann".into())),
                 ("id".into(), (Operator::Ne, "1".into())),
                 ("age".into(), (Operator::Gt, "1".into())),
@@ -380,17 +365,13 @@ mod tests {
 
         let db = set_up_db().await;
 
-        db.query(query.0.as_ref())
-            .bind(query.1)
-            .bind(query.2)
-            .await
-            .unwrap();
+        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
     }
 
     #[tokio::test]
     async fn it_supports_expansions() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::new()),
+            filters: Filters(Box::new([])),
             expansions: &[("purchases", "->purchased.out")],
             limit: Some(10),
             offset: Some(0),
@@ -407,17 +388,13 @@ mod tests {
 
         let db = set_up_db().await;
 
-        db.query(query.0.as_ref())
-            .bind(query.1)
-            .bind(query.2)
-            .await
-            .unwrap();
+        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
     }
 
     #[tokio::test]
     async fn it_works_with_multiple_expansions() {
         let orders_query = QueryOptions {
-            filters: Filters(HashMap::from([(
+            filters: Filters(Box::from([(
                 "user".into(),
                 (Operator::Eq, FilterValue::Unsafe("$parent.id".into())),
             )])),
@@ -430,7 +407,7 @@ mod tests {
         .build("orders", &["*"]);
 
         let opts = QueryOptions {
-            filters: Filters(HashMap::new()),
+            filters: Filters(Box::new([])),
             expansions: &[
                 ("purchases", "->purchased.out"),
                 ("orders", orders_query.0.as_ref()),
@@ -452,9 +429,7 @@ mod tests {
 
         db.query(query.0.as_ref())
             .bind(query.1)
-            .bind(query.2)
             .bind(orders_query.1)
-            .bind(orders_query.2)
             .await
             .unwrap();
     }
@@ -462,7 +437,7 @@ mod tests {
     #[tokio::test]
     async fn it_sanitizes_filter_keys() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::from([(
+            filters: Filters(Box::from([(
                 "name = \"hello\"; DELETE user:hello; SELECT * FROM user WHERE name = \"hello\""
                     .into(),
                 (Operator::Eq, "whatever".into()),
@@ -482,17 +457,13 @@ mod tests {
         );
 
         let db = set_up_db().await;
-        db.query(query.0.as_ref())
-            .bind(query.1)
-            .bind(query.2)
-            .await
-            .unwrap();
+        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
     }
 
     #[tokio::test]
     async fn it_allows_dots_in_the_filter_key() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::from([(
+            filters: Filters(Box::from([(
                 "tag.name".into(),
                 (Operator::Eq, "whatever".into()),
             )])),
@@ -513,17 +484,13 @@ mod tests {
         assert_eq!(query.1.get("tag_name"), Some(&"whatever".into()));
 
         let db = set_up_db().await;
-        db.query(query.0.as_ref())
-            .bind(query.1)
-            .bind(query.2)
-            .await
-            .unwrap();
+        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
     }
 
     #[tokio::test]
     async fn it_sanitizes_expansion_keys() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::new()),
+            filters: Filters(Box::new([])),
             expansions: &[(
                 "purchased_items = \"hello\"; DELETE user:hello; SELECT * FROM user WHERE name = \"hello\"",
                 "->purchased.out",
@@ -543,17 +510,13 @@ mod tests {
 
         let db = set_up_db().await;
 
-        db.query(query.0.as_ref())
-            .bind(query.1)
-            .bind(query.2)
-            .await
-            .unwrap();
+        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
     }
 
     #[tokio::test]
     async fn it_can_filter_values_in_arrays() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::from([(
+            filters: Filters(Box::from([(
                 "tags".into(),
                 (Operator::Eq, vec!["tag1", "tag2"].into()),
             )])),
@@ -571,16 +534,13 @@ mod tests {
             "SELECT id,name FROM user WHERE tags CONTAINSANY $tags"
         );
 
-        assert_eq!(
-            query.2.get("tags").unwrap().as_ref(),
-            ["tag1".into(), "tag2".into()]
-        );
+        assert_eq!(query.1.get("tags").unwrap(), &vec!["tag1", "tag2"].into());
     }
 
     #[tokio::test]
     async fn it_ignores_array_filters_for_operators_other_than_eq() {
         let opts = QueryOptions {
-            filters: Filters(HashMap::from([
+            filters: Filters(Box::from([
                 (
                     "not_equal".into(),
                     (Operator::Ne, vec!["value1", "value2"].into()),
@@ -621,11 +581,124 @@ mod tests {
         );
 
         assert_eq!(
-            query.2.into_iter().collect::<Vec<_>>(),
-            [(
-                "equal".into(),
-                vec!["value1".into(), "value2".into()].into()
-            )]
+            query.1.into_iter().collect::<Vec<_>>(),
+            [("equal".into(), vec!["value1", "value2"].into())]
         );
+    }
+
+    #[tokio::test]
+    async fn it_allows_multiple_filters_for_the_same_field() {
+        let opts = QueryOptions {
+            filters: Filters(Box::from([
+                ("price".into(), (Operator::Le, 20.into())),
+                ("price".into(), (Operator::Ge, 10.into())),
+                ("price".into(), (Operator::Eq, vec![5, 6].into())),
+            ])),
+            expansions: &[],
+            limit: None,
+            offset: None,
+            order_by: None,
+            order_dir: None,
+        };
+
+        let query = opts.build("user", &["id", "name"]);
+
+        assert_eq!(
+            query.0.as_ref(),
+            "SELECT id,name FROM user WHERE price <= $price AND price >= $price__1 AND price CONTAINSANY $price__2"
+        );
+
+        assert_eq!(query.1.get("price").unwrap(), &20.into());
+        assert_eq!(query.1.get("price__1").unwrap(), &10.into());
+        assert_eq!(query.1.get("price__2").unwrap(), &vec![5, 6].into());
+
+        let db = set_up_db().await;
+
+        db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn it_serializes_the_variables_correctly() {
+        let opts = QueryOptions {
+            filters: Filters(Box::from([
+                ("age".into(), (Operator::Gt, 20.into())),
+                ("age".into(), (Operator::Lt, 40.into())),
+                ("tags".into(), (Operator::Eq, vec!["tag1", "tag2"].into())),
+                ("profession".into(), (Operator::Eq, "tester".into())),
+            ])),
+            expansions: &[],
+            limit: None,
+            offset: None,
+            order_by: None,
+            order_dir: None,
+        };
+
+        let query = opts.build("test", &["*"]);
+
+        assert_eq!(
+            query.0.as_ref(),
+            "SELECT * FROM test WHERE age < $age__1 AND age > $age AND profession = $profession AND tags CONTAINSANY $tags"
+        );
+        assert_eq!(
+            query.1,
+            HashMap::from([
+                ("age".into(), 20.into()),
+                ("age__1".into(), 40.into()),
+                ("profession".into(), "tester".into()),
+                ("tags".into(), vec!["tag1", "tag2"].into())
+            ])
+        );
+
+        let db = set_up_db().await;
+
+        db.query(
+            r#"
+            DEFINE TABLE test;
+
+            CREATE test CONTENT {
+                name: "tester testermann",
+                age: 21,
+                tags: ["tag1", "tag3"],
+                profession: "tester",
+            };
+
+            CREATE test CONTENT {
+                name: "checkster assertson",
+                age: 19,
+                tags: ["tag1", "tag2"],
+                profession: "tester",
+            };
+
+            CREATE test CONTENT {
+                name: "penelopen performance",
+                age: 30,
+                tags: ["tag2"],
+                profession: "pen tester",
+            };
+        "#,
+        )
+        .await
+        .unwrap();
+
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct TestValue {
+            name: String,
+            age: i32,
+            tags: Vec<String>,
+            profession: String,
+        }
+
+        let mut result = db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+        let result: Vec<TestValue> = result.take(0).unwrap();
+
+        assert_eq!(
+            result,
+            vec![TestValue {
+                name: "tester testermann".into(),
+                age: 21,
+                tags: vec!["tag1".into(), "tag3".into()],
+                profession: "tester".into(),
+            }]
+        )
     }
 }
