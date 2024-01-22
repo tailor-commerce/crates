@@ -3,14 +3,14 @@ use std::collections::HashMap;
 use regex::Regex;
 
 use crate::{
-    filters::{FilterValue, Filters},
+    filters::{FilterValue, FilterValueKind, Filters},
     operator::Operator,
     order_dir::OrderDir,
     Expansions,
 };
 
-pub struct QueryOptions<'a, T: Into<FilterValue>> {
-    pub filters: Filters<T>,
+pub struct QueryOptions<'a> {
+    pub filters: Filters,
     pub expansions: Expansions<'a>,
     pub limit: Option<usize>,
     pub offset: Option<usize>,
@@ -18,7 +18,7 @@ pub struct QueryOptions<'a, T: Into<FilterValue>> {
     pub order_dir: Option<OrderDir>,
 }
 
-impl<'a, T: Into<FilterValue> + Clone> QueryOptions<'a, T> {
+impl<'a> QueryOptions<'a> {
     pub fn new() -> Self {
         Self {
             filters: Filters(HashMap::new()),
@@ -36,8 +36,8 @@ impl<'a, T: Into<FilterValue> + Clone> QueryOptions<'a, T> {
         unsafe_columns: &[&str],
     ) -> (
         Box<str>,
-        HashMap<Box<str>, Box<str>>,
-        HashMap<Box<str>, Box<[Box<str>]>>,
+        HashMap<Box<str>, FilterValueKind>,
+        HashMap<Box<str>, Box<[FilterValueKind]>>,
     ) {
         let expansions = self
             .expansions
@@ -63,8 +63,8 @@ impl<'a, T: Into<FilterValue> + Clone> QueryOptions<'a, T> {
             table_name
         );
 
-        let mut string_variables = HashMap::new();
-        let mut array_variables = HashMap::new();
+        let mut single_variables = HashMap::new();
+        let mut list_variables = HashMap::new();
 
         if self.filters.len() > 0 {
             push_query_str(&mut query, "WHERE");
@@ -77,7 +77,7 @@ impl<'a, T: Into<FilterValue> + Clone> QueryOptions<'a, T> {
                     let key = sanitize(&unsafe_key)?;
                     let variable_ident = to_variable_ident(key);
 
-                    match <T as Into<FilterValue>>::into(value) {
+                    match value {
                         FilterValue::Escaped(_) => Some(format!(
                             "{} {} {}",
                             key,
@@ -115,11 +115,11 @@ impl<'a, T: Into<FilterValue> + Clone> QueryOptions<'a, T> {
 
                 match filter_value {
                     FilterValue::Escaped(value) => {
-                        string_variables.insert(variable_ident.to_string().into_boxed_str(), value);
+                        single_variables.insert(variable_ident.to_string().into_boxed_str(), value);
                     }
                     FilterValue::EscapedList(values) => {
                         match operator {
-                            Operator::Eq => array_variables
+                            Operator::Eq => list_variables
                                 .insert(variable_ident.to_string().into_boxed_str(), values),
                             _ => continue,
                         };
@@ -150,7 +150,7 @@ impl<'a, T: Into<FilterValue> + Clone> QueryOptions<'a, T> {
             push_query_str(&mut query, format!("START {}", offset).as_str());
         }
 
-        (query.into_boxed_str(), string_variables, array_variables)
+        (query.into_boxed_str(), single_variables, list_variables)
     }
 }
 

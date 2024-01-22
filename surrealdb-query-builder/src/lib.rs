@@ -41,10 +41,13 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_one_filter() {
-        let opts: QueryOptions<Box<str>> = QueryOptions {
+        let opts = QueryOptions {
             filters: Filters(HashMap::from([(
                 "name".into(),
-                (Operator::Eq, "tester testermann".into()),
+                (
+                    Operator::Eq,
+                    FilterValue::Escaped("tester testermann".into()),
+                ),
             )])),
             expansions: &[],
             limit: Some(10),
@@ -109,7 +112,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_multiple_filters() {
-        let opts: QueryOptions<Box<str>> = QueryOptions {
+        let opts = QueryOptions {
             filters: Filters(HashMap::from([
                 ("name".into(), (Operator::Eq, "tester testermann".into())),
                 ("id".into(), (Operator::Ne, "1".into())),
@@ -148,7 +151,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_filters() {
-        let opts = QueryOptions::<Box<str>> {
+        let opts = QueryOptions {
             filters: Filters(HashMap::new()),
             expansions: &[],
             limit: Some(10),
@@ -171,7 +174,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_limit() {
-        let opts = QueryOptions::<Box<str>> {
+        let opts = QueryOptions {
             filters: Filters(HashMap::new()),
             expansions: &[],
             limit: None,
@@ -194,7 +197,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_offset() {
-        let opts = QueryOptions::<Box<str>> {
+        let opts = QueryOptions {
             filters: Filters(HashMap::new()),
             expansions: &[],
             limit: Some(10),
@@ -217,7 +220,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_order_by() {
-        let opts = QueryOptions::<String> {
+        let opts = QueryOptions {
             filters: Filters(HashMap::new()),
             expansions: &[],
             limit: Some(10),
@@ -240,7 +243,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_no_order_dir() {
-        let opts = QueryOptions::<&str> {
+        let opts = QueryOptions {
             filters: Filters(HashMap::new()),
             expansions: &[],
             limit: Some(10),
@@ -263,7 +266,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_order_dir_desc() {
-        let opts = QueryOptions::<&str> {
+        let opts = QueryOptions {
             filters: Filters(HashMap::new()),
             expansions: &[],
             limit: Some(10),
@@ -286,7 +289,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_builds_the_correct_query_with_order_dir_asc() {
-        let opts = QueryOptions::<&str> {
+        let opts = QueryOptions {
             filters: Filters(HashMap::new()),
             expansions: &[],
             limit: Some(10),
@@ -311,12 +314,12 @@ mod tests {
     async fn it_filters_with_the_correct_operators() {
         let opts = QueryOptions {
             filters: Filters(HashMap::from([
-                ("name".into(), (Operator::Eq, "tester testermann")),
-                ("id".into(), (Operator::Ne, "1")),
-                ("age".into(), (Operator::Gt, "1")),
-                ("year_of_birth".into(), (Operator::Ge, "5")),
-                ("month_of_birth".into(), (Operator::Lt, "10")),
-                ("day_of_birth".into(), (Operator::Le, "10")),
+                ("name".into(), (Operator::Eq, "tester testermann".into())),
+                ("id".into(), (Operator::Ne, "1".into())),
+                ("age".into(), (Operator::Gt, "1".into())),
+                ("year_of_birth".into(), (Operator::Ge, "5".into())),
+                ("month_of_birth".into(), (Operator::Lt, "10".into())),
+                ("day_of_birth".into(), (Operator::Le, "10".into())),
             ])),
             expansions: &[],
             limit: Some(10),
@@ -345,12 +348,12 @@ mod tests {
     async fn it_creates_the_correct_variables() {
         let opts = QueryOptions {
             filters: Filters(HashMap::from([
-                ("name".into(), (Operator::Eq, "tester testermann")),
-                ("id".into(), (Operator::Ne, "1")),
-                ("age".into(), (Operator::Gt, "1")),
-                ("year_of_birth".into(), (Operator::Ge, "5")),
-                ("month_of_birth".into(), (Operator::Lt, "10")),
-                ("day_of_birth".into(), (Operator::Le, "10")),
+                ("name".into(), (Operator::Eq, "tester testermann".into())),
+                ("id".into(), (Operator::Ne, "1".into())),
+                ("age".into(), (Operator::Gt, "1".into())),
+                ("year_of_birth".into(), (Operator::Ge, "5".into())),
+                ("month_of_birth".into(), (Operator::Lt, "10".into())),
+                ("day_of_birth".into(), (Operator::Le, "10".into())),
             ])),
             expansions: &[],
             limit: Some(10),
@@ -363,7 +366,7 @@ mod tests {
 
         assert_eq!(
             query.1,
-            HashMap::<Box<str>, Box<str>>::from([
+            HashMap::from([
                 ("name".into(), "tester testermann".into()),
                 ("id".into(), "1".into()),
                 ("age".into(), "1".into()),
@@ -384,7 +387,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_supports_expansions() {
-        let opts = QueryOptions::<&str> {
+        let opts = QueryOptions {
             filters: Filters(HashMap::new()),
             expansions: &[("purchases", "->purchased.out")],
             limit: Some(10),
@@ -424,7 +427,7 @@ mod tests {
         }
         .build("orders", &["*"]);
 
-        let opts = QueryOptions::<Box<str>> {
+        let opts = QueryOptions {
             filters: Filters(HashMap::new()),
             expansions: &[
                 ("purchases", "->purchased.out"),
@@ -460,7 +463,7 @@ mod tests {
             filters: Filters(HashMap::from([(
                 "name = \"hello\"; DELETE user:hello; SELECT * FROM user WHERE name = \"hello\""
                     .into(),
-                (Operator::Eq, "whatever"),
+                (Operator::Eq, "whatever".into()),
             )])),
             expansions: &[],
             limit: Some(10),
@@ -489,7 +492,7 @@ mod tests {
         let opts = QueryOptions {
             filters: Filters(HashMap::from([(
                 "tag.name".into(),
-                (Operator::Eq, "whatever"),
+                (Operator::Eq, "whatever".into()),
             )])),
             expansions: &[],
             limit: Some(10),
@@ -517,7 +520,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_sanitizes_expansion_keys() {
-        let opts = QueryOptions::<Box<str>> {
+        let opts = QueryOptions {
             filters: Filters(HashMap::new()),
             expansions: &[(
                 "purchased_items = \"hello\"; DELETE user:hello; SELECT * FROM user WHERE name = \"hello\"",
@@ -550,7 +553,7 @@ mod tests {
         let opts = QueryOptions {
             filters: Filters(HashMap::from([(
                 "tags".into(),
-                (Operator::Eq, vec!["tag1", "tag2"]),
+                (Operator::Eq, vec!["tag1", "tag2"].into()),
             )])),
             expansions: &[],
             limit: None,
@@ -576,21 +579,30 @@ mod tests {
     async fn it_ignores_array_filters_for_operators_other_than_eq() {
         let opts = QueryOptions {
             filters: Filters(HashMap::from([
-                ("not_equal".into(), (Operator::Ne, vec!["value1", "value2"])),
+                (
+                    "not_equal".into(),
+                    (Operator::Ne, vec!["value1", "value2"].into()),
+                ),
                 (
                     "less_than_or_equal".into(),
-                    (Operator::Le, vec!["value1", "value2"]),
+                    (Operator::Le, vec!["value1", "value2"].into()),
                 ),
-                ("less_than".into(), (Operator::Lt, vec!["value1", "value2"])),
+                (
+                    "less_than".into(),
+                    (Operator::Lt, vec!["value1", "value2"].into()),
+                ),
                 (
                     "greater_than_or_equal".into(),
-                    (Operator::Ge, vec!["value1", "value2"]),
+                    (Operator::Ge, vec!["value1", "value2"].into()),
                 ),
                 (
                     "greater_than".into(),
-                    (Operator::Gt, vec!["value1", "value2"]),
+                    (Operator::Gt, vec!["value1", "value2"].into()),
                 ),
-                ("equal".into(), (Operator::Eq, vec!["value1", "value2"])),
+                (
+                    "equal".into(),
+                    (Operator::Eq, vec!["value1", "value2"].into()),
+                ),
             ])),
             expansions: &[],
             limit: None,
