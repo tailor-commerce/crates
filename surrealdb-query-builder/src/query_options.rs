@@ -177,7 +177,7 @@ impl<'a> QueryOptions<'a> {
             push_query_str(&mut query, &filters_query);
         }
 
-        if let Some(order_by) = self.order_by {
+        if let Some(Some(order_by)) = self.order_by.map(|ob| sanitize(ob)) {
             push_query_str(&mut query, &format!("ORDER BY {}", order_by));
 
             if let Some(order_dir) = self.order_dir {
