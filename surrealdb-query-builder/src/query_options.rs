@@ -78,7 +78,8 @@ impl<'a> QueryOptions<'a> {
                     },
                     FilterValue::EscapedList(_) => {
                         match operator {
-                            Operator::Eq => match acc.get_mut(&key) {
+                            // Ignore any operator that's not an array operator when we have an array of values
+                            Operator::ContainsAny | Operator::Inside => match acc.get_mut(&key) {
                                 Some(values) => values.push((operator, value)),
                                 None => {
                                     acc.insert(key, vec![(operator, value)]);
@@ -108,10 +109,10 @@ impl<'a> QueryOptions<'a> {
                     )),
                     FilterValue::Unsafe(value) => Some(format!("{} {} {}", key, operator, value)),
                     FilterValue::EscapedList(_) => {
-                        // Ignore any operator that's not `Eq` when we have an array of values
+                        // Ignore any operator that's not an array operator when we have an array of values
                         match operator {
-                            Operator::Eq => {
-                                Some(format!("{} CONTAINSANY ${}", key, variable_ident))
+                            Operator::ContainsAny | Operator::Inside => {
+                                Some(format!("{} {} ${}", key, operator, variable_ident))
                             }
                             _ => return None,
                         }

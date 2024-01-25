@@ -518,7 +518,7 @@ mod tests {
         let opts = QueryOptions {
             filters: Filters(Box::from([(
                 "tags".into(),
-                (Operator::Eq, vec!["tag1", "tag2"].into()),
+                (Operator::ContainsAny, vec!["tag1", "tag2"].into()),
             )])),
             expansions: &[],
             limit: None,
@@ -538,7 +538,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn it_ignores_array_filters_for_operators_other_than_eq() {
+    async fn it_ignores_array_filters_for_non_array_operators() {
         let opts = QueryOptions {
             filters: Filters(Box::from([
                 (
@@ -565,6 +565,14 @@ mod tests {
                     "equal".into(),
                     (Operator::Eq, vec!["value1", "value2"].into()),
                 ),
+                (
+                    "contains_any".into(),
+                    (Operator::ContainsAny, vec!["value1", "value2"].into()),
+                ),
+                (
+                    "inside_operator".into(),
+                    (Operator::Inside, vec!["value1", "value2"].into()),
+                ),
             ])),
             expansions: &[],
             limit: None,
@@ -577,12 +585,16 @@ mod tests {
 
         assert_eq!(
             query.0.as_ref(),
-            "SELECT id,name FROM user WHERE equal CONTAINSANY $equal"
+            "SELECT id,name FROM user WHERE contains_any CONTAINSANY $contains_any AND inside_operator INSIDE $inside_operator"
         );
 
         assert_eq!(
-            query.1.into_iter().collect::<Vec<_>>(),
-            [("equal".into(), vec!["value1", "value2"].into())]
+            query.1,
+            [
+                ("inside_operator".into(), vec!["value1", "value2"].into()),
+                ("contains_any".into(), vec!["value1", "value2"].into()),
+            ]
+            .into()
         );
     }
 
@@ -592,7 +604,7 @@ mod tests {
             filters: Filters(Box::from([
                 ("price".into(), (Operator::Le, 20.into())),
                 ("price".into(), (Operator::Ge, 10.into())),
-                ("price".into(), (Operator::Eq, vec![5, 6].into())),
+                ("price".into(), (Operator::Inside, vec![5, 6].into())),
             ])),
             expansions: &[],
             limit: None,
@@ -605,7 +617,7 @@ mod tests {
 
         assert_eq!(
             query.0.as_ref(),
-            "SELECT id,name FROM user WHERE price <= $price AND price >= $price__1 AND price CONTAINSANY $price__2"
+            "SELECT id,name FROM user WHERE price <= $price AND price >= $price__1 AND price INSIDE $price__2"
         );
 
         assert_eq!(query.1.get("price").unwrap(), &20.into());
@@ -623,7 +635,10 @@ mod tests {
             filters: Filters(Box::from([
                 ("age".into(), (Operator::Gt, 20.into())),
                 ("age".into(), (Operator::Lt, 40.into())),
-                ("tags".into(), (Operator::Eq, vec!["tag1", "tag2"].into())),
+                (
+                    "tags".into(),
+                    (Operator::ContainsAny, vec!["tag1", "tag2"].into()),
+                ),
                 ("profession".into(), (Operator::Eq, "tester".into())),
             ])),
             expansions: &[],

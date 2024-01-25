@@ -10,6 +10,8 @@ pub enum Operator {
     Ge,
     Lt,
     Le,
+    ContainsAny,
+    Inside,
 }
 
 impl Display for Operator {
@@ -21,6 +23,8 @@ impl Display for Operator {
             Operator::Ge => write!(f, ">="),
             Operator::Lt => write!(f, "<"),
             Operator::Le => write!(f, "<="),
+            Operator::ContainsAny => write!(f, "CONTAINSANY"),
+            Operator::Inside => write!(f, "INSIDE"),
         }
     }
 }
