@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     fmt::Display,
     ops::{Deref, DerefMut},
 };
@@ -9,75 +10,111 @@ use crate::operator::Operator;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(untagged)]
-pub enum FilterValueKind {
-    String(Box<str>),
+pub enum FilterValueKind<'a> {
+    String(Cow<'a, str>),
     Int(i64),
     UInt(u64),
     Float(f64),
     Bool(bool),
 }
 
-impl Into<FilterValueKind> for &str {
-    fn into(self) -> FilterValueKind {
+impl<'a> Into<FilterValueKind<'a>> for &'a str {
+    fn into(self) -> FilterValueKind<'a> {
         FilterValueKind::String(self.into())
     }
 }
 
-impl Into<FilterValueKind> for String {
-    fn into(self) -> FilterValueKind {
+impl<'a> Into<FilterValueKind<'a>> for String {
+    fn into(self) -> FilterValueKind<'a> {
         FilterValueKind::String(self.into())
     }
 }
 
-impl Into<FilterValueKind> for Box<str> {
-    fn into(self) -> FilterValueKind {
-        FilterValueKind::String(self)
-    }
-}
-
-impl Into<FilterValueKind> for i64 {
-    fn into(self) -> FilterValueKind {
+impl Into<FilterValueKind<'_>> for i64 {
+    fn into(self) -> FilterValueKind<'static> {
         FilterValueKind::Int(self)
     }
 }
 
-impl Into<FilterValueKind> for u64 {
-    fn into(self) -> FilterValueKind {
+impl Into<FilterValueKind<'_>> for u64 {
+    fn into(self) -> FilterValueKind<'static> {
         FilterValueKind::UInt(self)
     }
 }
 
-impl Into<FilterValueKind> for f64 {
-    fn into(self) -> FilterValueKind {
+impl Into<FilterValueKind<'_>> for f64 {
+    fn into(self) -> FilterValueKind<'static> {
         FilterValueKind::Float(self)
     }
 }
 
-impl Into<FilterValueKind> for i32 {
-    fn into(self) -> FilterValueKind {
+impl Into<FilterValueKind<'_>> for i32 {
+    fn into(self) -> FilterValueKind<'static> {
         FilterValueKind::Int(self.into())
     }
 }
 
-impl Into<FilterValueKind> for u32 {
-    fn into(self) -> FilterValueKind {
+impl Into<FilterValueKind<'_>> for u32 {
+    fn into(self) -> FilterValueKind<'static> {
         FilterValueKind::UInt(self.into())
     }
 }
 
-impl Into<FilterValueKind> for f32 {
-    fn into(self) -> FilterValueKind {
+impl Into<FilterValueKind<'_>> for f32 {
+    fn into(self) -> FilterValueKind<'static> {
         FilterValueKind::Float(self.into())
     }
 }
 
-impl Into<FilterValueKind> for bool {
-    fn into(self) -> FilterValueKind {
+impl Into<FilterValueKind<'_>> for bool {
+    fn into(self) -> FilterValueKind<'static> {
         FilterValueKind::Bool(self)
     }
 }
 
-impl Display for FilterValueKind {
+impl Into<FilterValueKind<'_>> for &i64 {
+    fn into(self) -> FilterValueKind<'static> {
+        FilterValueKind::Int(*self)
+    }
+}
+
+impl Into<FilterValueKind<'_>> for &u64 {
+    fn into(self) -> FilterValueKind<'static> {
+        FilterValueKind::UInt(*self)
+    }
+}
+
+impl Into<FilterValueKind<'_>> for &f64 {
+    fn into(self) -> FilterValueKind<'static> {
+        FilterValueKind::Float(*self)
+    }
+}
+
+impl Into<FilterValueKind<'_>> for &i32 {
+    fn into(self) -> FilterValueKind<'static> {
+        FilterValueKind::Int((*self).into())
+    }
+}
+
+impl Into<FilterValueKind<'_>> for &u32 {
+    fn into(self) -> FilterValueKind<'static> {
+        FilterValueKind::UInt((*self).into())
+    }
+}
+
+impl Into<FilterValueKind<'_>> for &f32 {
+    fn into(self) -> FilterValueKind<'static> {
+        FilterValueKind::Float((*self).into())
+    }
+}
+
+impl Into<FilterValueKind<'_>> for &bool {
+    fn into(self) -> FilterValueKind<'static> {
+        FilterValueKind::Bool(*self)
+    }
+}
+
+impl Display for FilterValueKind<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FilterValueKind::String(value) => value.fmt(f),
@@ -91,91 +128,94 @@ impl Display for FilterValueKind {
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
-pub enum FilterValue {
-    Escaped(FilterValueKind),
-    Unsafe(FilterValueKind),
-    EscapedList(Box<[FilterValueKind]>),
+pub enum FilterValue<'a> {
+    Escaped(FilterValueKind<'a>),
+    Unsafe(FilterValueKind<'a>),
+    EscapedList(Cow<'a, [FilterValueKind<'a>]>),
 }
 
-impl Into<FilterValue> for FilterValueKind {
-    fn into(self) -> FilterValue {
+impl<'a> Into<FilterValue<'a>> for FilterValueKind<'a> {
+    fn into(self) -> FilterValue<'a> {
         FilterValue::Escaped(self)
     }
 }
 
-impl Into<FilterValue> for &str {
-    fn into(self) -> FilterValue {
+impl<'a> Into<FilterValue<'a>> for &'a str {
+    fn into(self) -> FilterValue<'a> {
         FilterValue::Escaped(self.into())
     }
 }
 
-impl Into<FilterValue> for String {
-    fn into(self) -> FilterValue {
+impl Into<FilterValue<'static>> for String {
+    fn into(self) -> FilterValue<'static> {
         FilterValue::Escaped(self.into())
     }
 }
 
-impl Into<FilterValue> for Box<str> {
-    fn into(self) -> FilterValue {
+impl Into<FilterValue<'static>> for i64 {
+    fn into(self) -> FilterValue<'static> {
         FilterValue::Escaped(self.into())
     }
 }
 
-impl Into<FilterValue> for i64 {
-    fn into(self) -> FilterValue {
+impl Into<FilterValue<'static>> for u64 {
+    fn into(self) -> FilterValue<'static> {
         FilterValue::Escaped(self.into())
     }
 }
 
-impl Into<FilterValue> for u64 {
-    fn into(self) -> FilterValue {
+impl Into<FilterValue<'static>> for f64 {
+    fn into(self) -> FilterValue<'static> {
         FilterValue::Escaped(self.into())
     }
 }
 
-impl Into<FilterValue> for f64 {
-    fn into(self) -> FilterValue {
+impl Into<FilterValue<'static>> for i32 {
+    fn into(self) -> FilterValue<'static> {
         FilterValue::Escaped(self.into())
     }
 }
 
-impl Into<FilterValue> for i32 {
-    fn into(self) -> FilterValue {
+impl Into<FilterValue<'static>> for u32 {
+    fn into(self) -> FilterValue<'static> {
         FilterValue::Escaped(self.into())
     }
 }
 
-impl Into<FilterValue> for u32 {
-    fn into(self) -> FilterValue {
+impl Into<FilterValue<'static>> for f32 {
+    fn into(self) -> FilterValue<'static> {
         FilterValue::Escaped(self.into())
     }
 }
 
-impl Into<FilterValue> for f32 {
-    fn into(self) -> FilterValue {
+impl Into<FilterValue<'static>> for bool {
+    fn into(self) -> FilterValue<'static> {
         FilterValue::Escaped(self.into())
     }
 }
 
-impl Into<FilterValue> for bool {
-    fn into(self) -> FilterValue {
-        FilterValue::Escaped(self.into())
+impl<'a, T> Into<FilterValue<'a>> for &'a [T]
+where
+    &'a T: Into<FilterValueKind<'a>>,
+{
+    fn into(self) -> FilterValue<'a> {
+        FilterValue::EscapedList(self.into_iter().map(|s| s.into()).collect())
     }
 }
 
-impl<T: Into<FilterValueKind>> Into<FilterValue> for Box<[T]> {
-    fn into(self) -> FilterValue {
+impl<'a, T: Into<FilterValueKind<'a>>> Into<FilterValue<'a>> for Box<[T]> {
+    fn into(self) -> FilterValue<'a> {
         FilterValue::EscapedList(self.into_vec().into_iter().map(|s| s.into()).collect())
     }
 }
 
-impl<T: Into<FilterValueKind>> Into<FilterValue> for Vec<T> {
-    fn into(self) -> FilterValue {
+impl<'a, T: Into<FilterValueKind<'a>>> Into<FilterValue<'a>> for Vec<T> {
+    fn into(self) -> FilterValue<'a> {
         self.into_boxed_slice().into()
     }
 }
 
-impl Display for FilterValue {
+impl Display for FilterValue<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FilterValue::Escaped(value) => value.fmt(f),
@@ -194,24 +234,26 @@ impl Display for FilterValue {
 }
 
 #[derive(Default)]
-pub struct Filters(pub Box<[(Box<str>, (Operator, FilterValue))]>);
+pub struct Filters<'fv, 'key>(pub Box<[(Cow<'key, str>, (Operator, FilterValue<'fv>))]>);
 
-impl Deref for Filters {
-    type Target = Box<[(Box<str>, (Operator, FilterValue))]>;
+impl<'fv, 'key> Deref for Filters<'fv, 'key> {
+    type Target = Box<[(Cow<'key, str>, (Operator, FilterValue<'fv>))]>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for Filters {
+impl<'fv, 'key> DerefMut for Filters<'fv, 'key> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<T: Into<FilterValue>, S: Into<Box<str>>> Into<Filters> for Vec<(S, (Operator, T))> {
-    fn into(self) -> Filters {
+impl<'fv, 'key, T: Into<FilterValue<'fv>>, S: Into<Cow<'key, str>>> Into<Filters<'fv, 'key>>
+    for Vec<(S, (Operator, T))>
+{
+    fn into(self) -> Filters<'fv, 'key> {
         Filters(
             self.into_iter()
                 .map(|(key, (operator, value))| (key.into(), (operator, value.into())))
@@ -220,33 +262,39 @@ impl<T: Into<FilterValue>, S: Into<Box<str>>> Into<Filters> for Vec<(S, (Operato
     }
 }
 
-impl<T: Into<FilterValue>, S: Into<Box<str>>> Into<Filters> for Box<[(S, (Operator, T))]> {
-    fn into(self) -> Filters {
+impl<'fv, 'key, T: Into<FilterValue<'fv>>, S: Into<Cow<'key, str>>> Into<Filters<'fv, 'key>>
+    for Box<[(S, (Operator, T))]>
+{
+    fn into(self) -> Filters<'fv, 'key> {
         self.into_vec().into()
     }
 }
 
-impl<T: Clone + Into<FilterValue>, S: Into<Box<str>> + Clone> Into<Filters>
-    for &[(S, (Operator, T))]
+impl<'fv, 'key, T: Clone + Into<FilterValue<'fv>>, S: Into<Cow<'key, str>> + Clone>
+    Into<Filters<'fv, 'key>> for &[(S, (Operator, T))]
 {
-    fn into(self) -> Filters {
+    fn into(self) -> Filters<'fv, 'key> {
         let b: Box<[_]> = self.into();
         b.into()
     }
 }
 
-impl<T: Into<FilterValue>, S: Into<String>> Into<Filters> for Vec<(S, T)> {
-    fn into(self) -> Filters {
+impl<'fv, 'key, T: Into<FilterValue<'fv>>, S: Into<Cow<'key, str>>> Into<Filters<'fv, 'key>>
+    for Vec<(S, T)>
+{
+    fn into(self) -> Filters<'fv, 'key> {
         Filters(
             self.into_iter()
-                .map(|(key, value)| (key.into().into_boxed_str(), (Operator::Eq, value.into())))
+                .map(|(key, value)| (key.into().into(), (Operator::Eq, value.into())))
                 .collect(),
         )
     }
 }
 
-impl<T: Into<FilterValue>, S: Into<String>> Into<Filters> for Box<[(S, T)]> {
-    fn into(self) -> Filters {
+impl<'fv, 'key, T: Into<FilterValue<'fv>>, S: Into<Cow<'key, str>>> Into<Filters<'fv, 'key>>
+    for Box<[(S, T)]>
+{
+    fn into(self) -> Filters<'fv, 'key> {
         self.into_vec().into()
     }
 }
