@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::collections::HashMap;
 
 use regex::Regex;
 
@@ -9,16 +9,16 @@ use crate::{
     Expansions,
 };
 
-pub struct QueryOptions<'ex, 'fv, 'fkey> {
-    pub filters: Filters<'fv, 'fkey>,
-    pub expansions: Expansions<'ex>,
+pub struct QueryOptions<'a> {
+    pub filters: Filters,
+    pub expansions: Expansions<'a>,
     pub limit: Option<usize>,
     pub offset: Option<usize>,
-    pub order_by: Option<&'ex str>,
+    pub order_by: Option<&'a str>,
     pub order_dir: Option<OrderDir>,
 }
 
-impl<'ex, 'fv, 'fkey> QueryOptions<'ex, 'fv, 'fkey> {
+impl<'a> QueryOptions<'a> {
     pub fn new() -> Self {
         Self {
             filters: Filters(Box::default()),
@@ -31,19 +31,18 @@ impl<'ex, 'fv, 'fkey> QueryOptions<'ex, 'fv, 'fkey> {
     }
 
     fn flatten_grouped_filters(
-        grouped_filters: HashMap<Cow<'fkey, str>, Vec<(Operator, FilterValue<'fv>)>>,
-    ) -> HashMap<Cow<'fkey, str>, (Cow<'fkey, str>, Operator, FilterValue<'fv>)> {
+        grouped_filters: HashMap<Box<str>, Vec<(Operator, FilterValue)>>,
+    ) -> HashMap<Box<str>, (Box<str>, Operator, FilterValue)> {
         let mut result = HashMap::new();
 
         for (key, values) in grouped_filters.into_iter() {
             let mut i = 0;
 
-            // Following clones are cheap when the keys are borrowed
             for (operator, value) in values.into_iter() {
                 let enumerated_key = if i == 0 {
                     key.clone()
                 } else {
-                    Cow::Owned(format!("{}__{}", key.clone(), i))
+                    format!("{}__{}", &key, i).into_boxed_str()
                 };
 
                 result.insert(enumerated_key, (key.clone(), operator, value));
@@ -55,24 +54,19 @@ impl<'ex, 'fv, 'fkey> QueryOptions<'ex, 'fv, 'fkey> {
         result
     }
 
-    fn build_filters(
-        filters: Filters<'fv, 'fkey>,
-    ) -> (Box<str>, HashMap<Box<str>, FilterValue<'fv>>) {
+    fn build_filters(filters: Filters) -> (Box<str>, HashMap<Box<str>, FilterValue>) {
         if filters.is_empty() {
             return ("".into(), HashMap::new());
         }
 
-        let grouped_filters: HashMap<Cow<'fkey, str>, Vec<(Operator, FilterValue)>> = filters
+        let grouped_filters: HashMap<Box<str>, Vec<(Operator, FilterValue)>> = filters
             .0
             .into_vec()
             .into_iter()
             .filter_map(|(unsafe_key, (operator, value))| {
-                let key = match unsafe_key {
-                    Cow::Borrowed(unsafe_key) => Cow::Borrowed(sanitize(unsafe_key)?),
-                    Cow::Owned(unsafe_key) => Cow::Owned(sanitize(&unsafe_key)?.to_string()),
-                };
+                let key = sanitize(&unsafe_key)?;
 
-                Some((key, (operator, value)))
+                Some((key.to_string().into_boxed_str(), (operator, value)))
             })
             .fold(HashMap::new(), |mut acc, (key, (operator, value))| {
                 match value {
@@ -153,7 +147,7 @@ impl<'ex, 'fv, 'fkey> QueryOptions<'ex, 'fv, 'fkey> {
         self,
         table_name: &str,
         unsafe_columns: &[&str],
-    ) -> (Box<str>, HashMap<Box<str>, FilterValue<'fv>>) {
+    ) -> (Box<str>, HashMap<Box<str>, FilterValue>) {
         let expansions = self
             .expansions
             .into_iter()

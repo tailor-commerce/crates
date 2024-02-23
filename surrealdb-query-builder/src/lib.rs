@@ -43,16 +43,13 @@ mod tests {
     #[tokio::test]
     async fn it_builds_the_correct_query_with_one_filter() {
         let opts = QueryOptions {
-            filters: Filters(
-                [(
-                    "name".into(),
-                    (
-                        Operator::Eq,
-                        FilterValue::Escaped("tester testermann".into()),
-                    ),
-                )]
-                .into(),
-            ),
+            filters: Filters(Box::from([(
+                "name".into(),
+                (
+                    Operator::Eq,
+                    FilterValue::Escaped("tester testermann".into()),
+                ),
+            )])),
             expansions: &[],
             limit: Some(10),
             offset: Some(0),
