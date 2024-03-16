@@ -9,6 +9,7 @@ pub type Expansions<'a> = &'a [(&'a str, &'a str)];
 mod tests {
     use std::collections::HashMap;
 
+    use rust_decimal::Decimal;
     use serde::Deserialize;
     use surrealdb::{
         engine::local::{Db, Mem},
@@ -715,5 +716,59 @@ mod tests {
                 profession: "tester".into(),
             }]
         )
+    }
+
+    #[tokio::test]
+    async fn it_works_with_decimals() {
+        let db = set_up_db().await;
+
+        db.query(
+            r"
+            DEFINE TABLE decimal_test SCHEMAFULL;
+            DEFINE FIELD price ON decimal_test TYPE decimal;
+
+            CREATE decimal_test:1 SET price = 15dec;
+        ",
+        )
+        .await
+        .unwrap();
+
+        let opts = QueryOptions {
+            filters: Filters(Box::from([
+                ("price".into(), (Operator::Le, Decimal::from(20).into())),
+                ("price".into(), (Operator::Ge, Decimal::from(10).into())),
+            ])),
+            expansions: &[],
+            limit: None,
+            offset: None,
+            order_by: None,
+            order_dir: None,
+        };
+
+        let query = opts.build("decimal_test", &["price"]);
+
+        assert_eq!(
+            query.0.as_ref(),
+            "SELECT price FROM decimal_test WHERE price <= $price AND price >= $price__1"
+        );
+
+        assert_eq!(query.1.get("price").unwrap(), &Decimal::from(20).into());
+        assert_eq!(query.1.get("price__1").unwrap(), &Decimal::from(10).into());
+
+        let mut response = db.query(query.0.as_ref()).bind(query.1).await.unwrap();
+
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct TestValue {
+            pub price: Decimal,
+        }
+
+        let result: Vec<TestValue> = response.take(0).unwrap();
+
+        assert_eq!(
+            result.first(),
+            Some(&TestValue {
+                price: Decimal::from(15)
+            })
+        );
     }
 }

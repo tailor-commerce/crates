@@ -9,7 +9,7 @@ edition = "2021"
 regex = "1.10.2"
 serde = "1.0.193"
 rust_decimal = "1.33.1"
+surrealdb-nightly = { version = "1.4.20240315", features = ["kv-mem"] }
 
 [dev-dependencies]
 tokio = "1.33.0"
-surrealdb-nightly = { version = "1.4.20240315", features = ["kv-mem"] }

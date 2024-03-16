@@ -15,8 +15,16 @@ pub enum FilterValueKind {
     Int(i64),
     UInt(u64),
     Float(f64),
+    #[serde(serialize_with = "serialize_decimal")]
     Decimal(Decimal),
     Bool(bool),
+}
+
+fn serialize_decimal<S>(d: &Decimal, s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    surrealdb::sql::Number::Decimal(*d).serialize(s)
 }
 
 impl Into<FilterValueKind> for &str {
